@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { AmbientLight, AnimationMixer, Box3, Clock, Color, DirectionalLight, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
+import { AmbientLight, Box3, Clock, Color, DirectionalLight, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+import { createCharacterControllerPreview } from "../characters/CharacterControllerPreview";
 import { STAXEL_VOXEL_FEMALE } from "../characters/staxelVoxelFemale";
 
 type PreviewState = "loading" | "ready" | "error";
@@ -27,7 +28,7 @@ export function CharacterAssetPreview() {
     scene.add(key);
 
     let cancelled = false;
-    let mixer: AnimationMixer | null = null;
+    let controller: ReturnType<typeof createCharacterControllerPreview> | null = null;
     let frameId = 0;
     const clock = new Clock();
 
@@ -59,15 +60,12 @@ export function CharacterAssetPreview() {
         camera.position.set(largestAxis * 1.25, largestAxis * 0.65, largestAxis * 1.75);
         camera.lookAt(0, 0, 0);
 
-        if (gltf.animations.length > 0) {
-          mixer = new AnimationMixer(model);
-          mixer.clipAction(gltf.animations[0]).play();
-        }
+        controller = createCharacterControllerPreview(gltf);
 
         setState("ready");
         const render = () => {
           if (cancelled) return;
-          mixer?.update(clock.getDelta());
+          controller?.update(clock.getDelta());
           renderer.render(scene, camera);
           frameId = window.requestAnimationFrame(render);
         };
@@ -86,6 +84,7 @@ export function CharacterAssetPreview() {
       cancelled = true;
       window.cancelAnimationFrame(frameId);
       observer.disconnect();
+      controller?.dispose();
       renderer.dispose();
     };
   }, []);

@@ -23,3 +23,8 @@ The typed client descriptor and empty preview-only controller binding in
 `src/characters/staxelVoxelFemale.ts` describe client-preview identity and
 source metadata. Any later character controller must consume approved semantic
 animation identifiers rather than glTF node indexes or raw mesh names.
+
+`src/characters/CharacterControllerPreview.ts` is the current isolated binding:
+it validates `_rootJoint`, one skinned mesh, and the approved preview clip
+`Take 001`, then exposes local visual state only. It has no account, inventory,
+network, player-command, or game-authority dependency.
