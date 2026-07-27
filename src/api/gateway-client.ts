@@ -1,7 +1,7 @@
-export const WEBMASTER_PROTOCOL_VERSION = "1.0.0";
+export const GATEWAY_PROTOCOL_VERSION = "1.0.0";
 
-export type WebmasterHealth = Readonly<{
-  service: "knowhere-webmaster";
+export type GatewayHealth = Readonly<{
+  service: "knowhere-gateway";
   status: "ok";
   protocolVersion: string;
   buildVersion: string;
@@ -10,20 +10,20 @@ export type WebmasterHealth = Readonly<{
   apiRelay: "not-probed";
 }>;
 
-export type WebmasterHealthStatus =
+export type GatewayHealthStatus =
   | Readonly<{ phase: "idle" | "checking" }>
-  | Readonly<{ phase: "healthy"; health: WebmasterHealth }>
+  | Readonly<{ phase: "healthy"; health: GatewayHealth }>
   | Readonly<{ phase: "unavailable"; reason: "network" | "response" | "invalid-response" }>
   | Readonly<{ phase: "aborted" }>;
 
-export type WebmasterClient = Readonly<{
-  checkHealth(signal?: AbortSignal): Promise<Exclude<WebmasterHealthStatus, { phase: "idle" | "checking" }>>;
+export type GatewayClient = Readonly<{
+  checkHealth(signal?: AbortSignal): Promise<Exclude<GatewayHealthStatus, { phase: "idle" | "checking" }>>;
 }>;
 
-function isWebmasterHealth(value: unknown): value is WebmasterHealth {
+function isGatewayHealth(value: unknown): value is GatewayHealth {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
-  return record.service === "knowhere-webmaster"
+  return record.service === "knowhere-gateway"
     && record.status === "ok"
     && typeof record.protocolVersion === "string"
     && typeof record.buildVersion === "string"
@@ -35,18 +35,18 @@ function isWebmasterHealth(value: unknown): value is WebmasterHealth {
 function normalizeBaseUrl(value: string | URL): URL {
   const url = new URL(value);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("The Webmaster URL must use HTTP or HTTPS.");
+    throw new Error("The Gateway URL must use HTTP or HTTPS.");
   }
   if (url.username || url.password || url.search || url.hash) {
-    throw new Error("The Webmaster URL cannot contain credentials, query parameters, or fragments.");
+    throw new Error("The Gateway URL cannot contain credentials, query parameters, or fragments.");
   }
   return url;
 }
 
-export function createWebmasterClient(
+export function createGatewayClient(
   baseUrl: string | URL,
   request: typeof fetch = fetch,
-): WebmasterClient {
+): GatewayClient {
   const healthUrl = new URL("/v1/health", normalizeBaseUrl(baseUrl));
 
   return {
@@ -60,7 +60,7 @@ export function createWebmasterClient(
         if (!response.ok) return { phase: "unavailable", reason: "response" };
 
         const payload: unknown = await response.json();
-        return isWebmasterHealth(payload)
+        return isGatewayHealth(payload)
           ? { phase: "healthy", health: payload }
           : { phase: "unavailable", reason: "invalid-response" };
       } catch (error) {

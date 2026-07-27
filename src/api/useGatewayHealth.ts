@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  createWebmasterClient,
-  type WebmasterHealthStatus,
-} from "./webmaster-client";
+  createGatewayClient,
+  type GatewayHealthStatus,
+} from "./gateway-client";
 
-function configuredWebmasterUrl(): URL {
-  const configured = document.querySelector<HTMLMetaElement>('meta[name="knowhere-webmaster-url"]')?.content.trim();
+function configuredGatewayUrl(): URL {
+  const configured = document.querySelector<HTMLMetaElement>('meta[name="knowhere-gateway-url"]')?.content.trim();
   return new URL(configured || window.location.origin);
 }
 
-export function useWebmasterHealth(): readonly [WebmasterHealthStatus, () => void] {
-  const client = useMemo(() => createWebmasterClient(configuredWebmasterUrl()), []);
+export function useGatewayHealth(): readonly [GatewayHealthStatus, () => void] {
+  const client = useMemo(() => createGatewayClient(configuredGatewayUrl()), []);
   const controller = useRef<AbortController | null>(null);
-  const [status, setStatus] = useState<WebmasterHealthStatus>({ phase: "idle" });
+  const [status, setStatus] = useState<GatewayHealthStatus>({ phase: "idle" });
 
   const refresh = useCallback(() => {
     controller.current?.abort();

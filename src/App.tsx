@@ -1,8 +1,8 @@
 import { CharacterAssetPreview } from "./character-preview/CharacterAssetPreview";
-import { useWebmasterHealth } from "./api/useWebmasterHealth";
+import { useGatewayHealth } from "./api/useGatewayHealth";
 
-function WebmasterHealthStatus() {
-  const [status, refresh] = useWebmasterHealth();
+function GatewayHealthStatus() {
+  const [status, refresh] = useGatewayHealth();
 
   const description = status.phase === "healthy"
     ? `Web service is responding (${status.health.buildVersion}).`
@@ -36,7 +36,7 @@ export function App() {
           The browser shell is ready for service contracts. Login, world entry,
           messaging, inventory, and rendering remain intentionally unported.
         </p>
-        <WebmasterHealthStatus />
+        <GatewayHealthStatus />
         <p>
           The isolated third-party character intake preview is available only at
           <code> ?preview=staxel-voxel-female</code>.

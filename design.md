@@ -12,11 +12,11 @@ The eventual web client consumes versioned public contracts from Web,
 Gatekeeper, Messenger, and Gamemaster services. It never connects directly to
 PostgreSQL and never contains service secrets.
 
-## Webmaster health contract
+## Gateway health contract
 
-`src/api/webmaster-client.ts` is the typed browser-side consumer for the
-Webmaster `GET /v1/health` contract. Its base URL comes from the non-secret
-`<meta name="knowhere-webmaster-url">` value, or the current browser origin if
+`src/api/gateway-client.ts` is the typed browser-side consumer for the
+Gateway `GET /v1/health` contract. Its base URL comes from the non-secret
+`<meta name="knowhere-gateway-url">` value, or the current browser origin if
 that value is blank. The client validates the response shape and accepts an
 `AbortSignal` per request.
 
