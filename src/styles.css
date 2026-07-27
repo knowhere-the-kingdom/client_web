@@ -48,3 +48,35 @@ body { background: var(--canvas); }
 h1 { margin: 0; font-size: clamp(1.8rem, 5vw, 3rem); }
 
 .browser-shell__panel > p:last-child { margin: 1rem 0 0; color: var(--muted); line-height: 1.6; }
+
+code { color: var(--accent); }
+
+.asset-preview {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: radial-gradient(circle at 50% 35%, rgb(72 215 223 / 10%), transparent 40rem), var(--canvas);
+}
+
+.asset-preview__panel {
+  width: min(100%, 58rem);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--panel);
+}
+
+.asset-preview__status, .asset-preview__credit { color: var(--muted); line-height: 1.5; }
+
+.asset-preview__canvas {
+  display: block;
+  width: 100%;
+  height: min(62vh, 42rem);
+  margin: 1rem 0;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: #070b12;
+}
+
+.asset-preview__credit a { color: var(--accent); }

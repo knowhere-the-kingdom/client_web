@@ -1,0 +1,11 @@
+Model Information:
+* title:	Staxel Voxel Female
+* source:	https://sketchfab.com/3d-models/staxel-voxel-female-debe55a5358b4efc89e346ab4a7d4d57
+* author:	andruha1801 (https://sketchfab.com/andruha1801)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Staxel Voxel Female" (https://sketchfab.com/3d-models/staxel-voxel-female-debe55a5358b4efc89e346ab4a7d4d57) by andruha1801 (https://sketchfab.com/andruha1801) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

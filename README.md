@@ -24,4 +24,11 @@ configuration, or authenticated client.
 The `package.json` declares a future React/Vite browser build. Dependencies are
 not installed by this scaffold and no command has been run.
 
+## Isolated third-party asset preview
+
+`?preview=staxel-voxel-female` opens a local-only preview of the imported
+CC-BY Staxel Voxel Female source asset. It is not part of login, gameplay,
+world authority, a production route, or server delivery. Attribution and source
+files are retained under `public/third-party/staxel_voxel_female/`.
+
 See `design.md` for the evolving program design.

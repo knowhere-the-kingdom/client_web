@@ -11,3 +11,15 @@ copied here.
 The eventual web client consumes versioned public contracts from Web,
 Gatekeeper, Messenger, and Gamemaster services. It never connects directly to
 PostgreSQL and never contains service secrets.
+
+## Third-party character preview intake
+
+The Staxel Voxel Female is a CC-BY-4.0 source asset retained with its license
+and attribution under `public/third-party/staxel_voxel_female/`. The initial
+slice is isolated to the `?preview=staxel-voxel-female` view and has no account,
+inventory, player-control, or gameplay authority.
+
+The typed client descriptor and empty preview-only controller binding in
+`src/characters/staxelVoxelFemale.ts` describe client-preview identity and
+source metadata. Any later character controller must consume approved semantic
+animation identifiers rather than glTF node indexes or raw mesh names.
