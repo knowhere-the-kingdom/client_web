@@ -49,6 +49,36 @@ h1 { margin: 0; font-size: clamp(1.8rem, 5vw, 3rem); }
 
 .browser-shell__panel > p:last-child { margin: 1rem 0 0; color: var(--muted); line-height: 1.6; }
 
+.browser-shell__health {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.browser-shell__health p { margin: 0; line-height: 1.5; }
+
+.browser-shell__health button {
+  flex: 0 0 auto;
+  border: 1px solid var(--accent);
+  border-radius: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.browser-shell__health button:hover,
+.browser-shell__health button:focus-visible { background: rgb(72 215 223 / 16%); }
+
+@media (max-width: 34rem) {
+  .browser-shell__health { align-items: flex-start; flex-direction: column; }
+}
+
 code { color: var(--accent); }
 
 .asset-preview {
