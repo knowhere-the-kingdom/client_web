@@ -1,47 +1,31 @@
 import { CharacterAssetPreview } from "./character-preview/CharacterAssetPreview";
-import { useGatewayHealth } from "./api/useGatewayHealth";
+import { DashboardShell } from "./dashboard/DashboardShell";
+import { LoginExperience } from "./login/LoginExperience";
+import { WorldBootstrapStatus } from "./world/WorldBootstrapStatus";
 
-function GatewayHealthStatus() {
-  const [status, refresh] = useGatewayHealth();
-
-  const description = status.phase === "healthy"
-    ? `Web service is responding (${status.health.buildVersion}).`
-    : status.phase === "unavailable"
-      ? `Web service is unavailable for this request (${status.reason}).`
-      : status.phase === "checking"
-        ? "Checking web service availability…"
-        : status.phase === "aborted"
-          ? "The availability request was cancelled."
-          : "Availability has not been checked.";
-
+function WorldPresentationBoundary() {
   return (
-    <section className="browser-shell__health" aria-live="polite">
-      <p><strong>Service status:</strong> {description}</p>
-      <button type="button" onClick={refresh}>Check again</button>
-    </section>
+    <main className="browser-shell" aria-labelledby="world-presentation-title">
+      <section className="browser-shell__panel">
+        <p className="browser-shell__eyebrow">Knowhere</p>
+        <h1 id="world-presentation-title">World presentation</h1>
+        <WorldBootstrapStatus />
+      </section>
+    </main>
   );
 }
 
 export function App() {
-  if (new URLSearchParams(window.location.search).get("preview") === "staxel-voxel-female") {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("preview") === "staxel-voxel-female") {
     return <CharacterAssetPreview />;
   }
+  if (window.location.pathname === "/dashboard" || params.has("page")) {
+    return <DashboardShell />;
+  }
+  if (window.location.pathname === "/world") {
+    return <WorldPresentationBoundary />;
+  }
 
-  return (
-    <main className="browser-shell" aria-labelledby="browser-shell-title">
-      <section className="browser-shell__panel">
-        <p className="browser-shell__eyebrow">Knowhere</p>
-        <h1 id="browser-shell-title">Web client scaffold</h1>
-        <p>
-          The browser shell is ready for service contracts. Login, world entry,
-          messaging, inventory, and rendering remain intentionally unported.
-        </p>
-        <GatewayHealthStatus />
-        <p>
-          The isolated third-party character intake preview is available only at
-          <code> ?preview=staxel-voxel-female</code>.
-        </p>
-      </section>
-    </main>
-  );
+  return <LoginExperience />;
 }

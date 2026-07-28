@@ -81,6 +81,177 @@ h1 { margin: 0; font-size: clamp(1.8rem, 5vw, 3rem); }
 
 code { color: var(--accent); }
 
+.browser-shell__bootstrap {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.browser-shell__bootstrap p { margin: 0.35rem 0; }
+
+.login-experience {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1.5rem, 5vw, 4rem);
+  background:
+    radial-gradient(circle at 50% 35%, rgb(72 215 223 / 8%), transparent 36rem),
+    var(--canvas);
+}
+
+.login-experience__key-area,
+.login-card {
+  width: min(100%, 30rem);
+}
+
+.login-experience__key-area { text-align: center; }
+
+.login-experience__key-area h1 { margin-bottom: 2.5rem; }
+
+.designer-key {
+  position: relative;
+  display: block;
+  width: 10rem;
+  height: 4rem;
+  margin: 0 auto 2.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: grab;
+}
+
+.designer-key:active { cursor: grabbing; }
+
+.designer-key:focus-visible,
+.designer-slot:focus-visible,
+.login-card input:focus-visible,
+.login-card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.designer-key__head {
+  position: absolute;
+  left: 0.25rem;
+  top: 0.5rem;
+  width: 3rem;
+  height: 3rem;
+  border: 0.55rem solid currentColor;
+  border-radius: 50%;
+}
+
+.designer-key__shaft {
+  position: absolute;
+  left: 3rem;
+  top: 1.65rem;
+  width: 6.5rem;
+  height: 0.7rem;
+  border-radius: 0.2rem;
+  background: currentColor;
+}
+
+.designer-key__teeth {
+  position: absolute;
+  right: 0.55rem;
+  top: 2rem;
+  width: 1.6rem;
+  height: 1.2rem;
+  border-right: 0.55rem solid currentColor;
+  border-bottom: 0.55rem solid currentColor;
+}
+
+.designer-slot {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 8rem;
+  padding: 1.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.75rem;
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.designer-slot--active { border-color: var(--accent); background: rgb(72 215 223 / 12%); }
+
+.designer-slot__mark {
+  display: block;
+  width: 1.4rem;
+  height: 2.8rem;
+  border: 0.35rem solid currentColor;
+  border-radius: 0.8rem 0.8rem 0.2rem 0.2rem;
+}
+
+.login-experience__hint,
+.login-card__intro,
+.login-card__notice { color: var(--muted); line-height: 1.5; }
+
+.login-experience__hint { margin: 1rem 0 0; }
+
+.login-card {
+  min-height: 31rem;
+  padding: clamp(1.75rem, 5vw, 3rem);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--panel);
+  box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 38%);
+}
+
+.login-card__intro { margin: 0.75rem 0 2rem; }
+
+.login-card label {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.login-card input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 0.8rem;
+  background: #070b0d;
+  color: var(--foreground);
+  font: inherit;
+}
+
+.login-card__submit,
+.character-list__item {
+  width: 100%;
+  border: 1px solid var(--accent);
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.login-card__submit { margin-top: 1.5rem; padding: 0.85rem 1rem; font: inherit; font-weight: 700; }
+
+.login-card__submit:hover,
+.login-card__submit:focus-visible,
+.character-list__item:hover:not(:disabled),
+.character-list__item:focus-visible { background: rgb(72 215 223 / 16%); }
+
+.login-card__submit:disabled,
+.character-list__item:disabled { cursor: not-allowed; opacity: 0.55; }
+
+.login-card__error { color: #ffaaa2; line-height: 1.5; }
+
+.login-card__notice { font-size: 0.85rem; }
+
+.character-list { display: grid; gap: 0.75rem; margin-top: 1.5rem; }
+
+.character-list__item {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  text-align: left;
+}
+
+.character-list__item span { color: var(--muted); }
+
 .asset-preview {
   min-height: 100dvh;
   display: grid;
