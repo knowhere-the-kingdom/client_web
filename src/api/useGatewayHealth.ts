@@ -4,14 +4,10 @@ import {
   createGatewayClient,
   type GatewayHealthStatus,
 } from "./gateway-client";
-
-function configuredGatewayUrl(): URL {
-  const configured = document.querySelector<HTMLMetaElement>('meta[name="knowhere-gateway-url"]')?.content.trim();
-  return new URL(configured || window.location.origin);
-}
+import { configuredGatewayHealthOrigin } from "./gateway-health-config";
 
 export function useGatewayHealth(): readonly [GatewayHealthStatus, () => void] {
-  const client = useMemo(() => createGatewayClient(configuredGatewayUrl()), []);
+  const client = useMemo(() => createGatewayClient(configuredGatewayHealthOrigin()), []);
   const controller = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<GatewayHealthStatus>({ phase: "idle" });
 
