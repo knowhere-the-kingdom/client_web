@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "assetId": "staxel-voxel-female",
+  "source": {
+    "title": "Staxel Voxel Female",
+    "author": "andruha1801",
+    "url": "https://sketchfab.com/3d-models/staxel-voxel-female-debe55a5358b4efc89e346ab4a7d4d57",
+    "license": "CC-BY-4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "modificationStatus": "unmodified-source"
+  },
+  "files": [
+    {
+      "path": "source/scene.gltf",
+      "bytes": 101349,
+      "sha256": "FE8DF1AEA72984152EBCF0D2BAB022A45308DA0D370ECFB5CEF026C1211CF63A"
+    },
+    {
+      "path": "source/scene.bin",
+      "bytes": 215080,
+      "sha256": "EBFC8AEE2422A743522A7BD643E3F01FEB29EB60AE96DF782DE36374C17FB685"
+    },
+    {
+      "path": "source/textures/Staxel_Female_material_baseColor.png",
+      "bytes": 1350,
+      "sha256": "C75A3F64824C83770E985438C7415CEF112E6980E2FF098E5666E40F59B0C62C"
+    },
+    {
+      "path": "source/license.txt",
+      "bytes": 708,
+      "sha256": "D07EEC5B04937FFF0D90B624879FDE2771F3B845C5EEB99862401CB0C1361D7D"
+    }
+  ],
+  "gltf": {
+    "version": "2.0",
+    "generator": "Sketchfab-12.68.0",
+    "sceneCount": 1,
+    "nodeCount": 71,
+    "meshCount": 15,
+    "materialCount": 2,
+    "skinCount": 1,
+    "rigRoot": "_rootJoint",
+    "jointCount": 21,
+    "jointNames": [
+      "_rootJoint",
+      "CATRigHub001_00",
+      "CATRigLLeg1_02",
+      "CATRigLLeg2_01",
+      "CATRigLLegAnkle_03",
+      "CATRigRLeg1_04",
+      "CATRigRLeg2_05",
+      "CATRigRLegAnkle_06",
+      "CATRigSpine_07",
+      "CATRigHub002_08",
+      "CATRigLArmCollarbone_09",
+      "CATRigLArm1_010",
+      "CATRigLArm2_011",
+      "CATRigLArmPalm_012",
+      "CATRigRArmCollarbone_013",
+      "CATRigRArm1_014",
+      "CATRigRArm2_016",
+      "CATRigRArmPalm_015",
+      "CATRigHub002Bone001_017",
+      "CATRigLLegPlatform_018",
+      "CATRigRLegPlatform_019"
+    ],
+    "skinnedMeshCount": 14,
+    "previewExcludedNodes": ["Plane001_Material #26_0"],
+    "animations": [
+      {
+        "sourceName": "Take 001",
+        "durationSeconds": 3.3333332538604736,
+        "channelCount": 60,
+        "animatedJointCount": 20,
+        "paths": {
+          "translation": 20,
+          "rotation": 20,
+          "scale": 20
+        },
+        "interpolation": "LINEAR",
+        "rootMotion": "none-at-_rootJoint",
+        "semanticClassification": null,
+        "approval": "preview-only"
+      }
+    ]
+  },
+  "controller": {
+    "rigVersion": "staxel-voxel-female-v1",
+    "authority": "client-local-presentation-only",
+    "semanticAnimationBindings": {},
+    "activationGate": "server-confirmed-session-active-character-world-admission"
+  }
+}

@@ -23,7 +23,11 @@ configuration, or authenticated client.
 - `src/styles.css` carries only the portable visual shell tokens and responsive
   browser layout derived from the legacy Next layout.
 - `src/api/gateway-client.ts` validates the public Gateway `GET /v1/health`
-  response without sending credentials or contacting any other service.
+  response and owns the typed, fail-closed protected Gateway request seam.
+- `src/api/gateway-contract.ts` records the browser projection required for
+  session restore, explicit resume, character selection, and world admission.
+  It matches `K:\nowhere\dev\backend\BROWSER_GATEWAY_AUTH_CONTRACT.md`; no
+  fixture authentication is used while the service implementation is pending.
 
 ## Gateway endpoint configuration
 
@@ -32,6 +36,15 @@ The browser reads the optional, non-secret
 the health check uses the current browser origin. The request has no authority
 beyond checking Gateway health; it cannot start, stop, or configure Gateway,
 the Login Server (`server_gatekeeper`), or any other service.
+
+The protected client is same-origin only. Gateway injects the contracted
+readable cookie name in `<meta name="knowhere-csrf-cookie">`: development uses
+`knowhere_dev_csrf` and HTTPS uses `__Host-knowhere_csrf`. The client fails
+closed when that value or cookie is unavailable.
+
+World discovery, entry, and bootstrap all come from the same-origin Gateway.
+transport with no browser cookies or CSRF. The response is validated before the
+client state may reach `world-ready`.
 
 The `package.json` declares a future React/Vite browser build. Dependencies are
 not installed by this scaffold and no command has been run.

@@ -1,0 +1,96 @@
+{
+  "playerSkillIds": [
+    "augmented-strike",
+    "solar-overdrive",
+    "phase-lunge",
+    "gravity-hook",
+    "restore-loop",
+    "rift-step",
+    "low-gravity-jump",
+    "silent-crouch",
+    "hover-flight",
+    "terrain-sense"
+  ],
+  "skills": [
+    {
+      "id": "augmented-strike",
+      "name": "Augmented Strike",
+      "family": "attack",
+      "slot": "augmented-attack",
+      "icon": "sword",
+      "description": "Adds a neon arc to the next weapon or tool action."
+    },
+    {
+      "id": "solar-overdrive",
+      "name": "Solar Overdrive",
+      "family": "ultimate",
+      "slot": "ultimate",
+      "icon": "orb",
+      "description": "Charges the tome with sunlit energy for a high-output skill window."
+    },
+    {
+      "id": "phase-lunge",
+      "name": "Phase Lunge",
+      "family": "attack",
+      "slot": "action-1",
+      "icon": "gem",
+      "description": "A short forward strike that scales with equipped melee tools."
+    },
+    {
+      "id": "gravity-hook",
+      "name": "Gravity Hook",
+      "family": "attack",
+      "slot": "action-2",
+      "icon": "pickaxe",
+      "description": "Pulls loose blocks and small targets across the heightmap test surface."
+    },
+    {
+      "id": "restore-loop",
+      "name": "Restore Loop",
+      "family": "restore",
+      "slot": "restore",
+      "icon": "flask",
+      "description": "Restores charge, reloads a tool, or consumes a compatible restorative item."
+    },
+    {
+      "id": "rift-step",
+      "name": "Rift Step",
+      "family": "movement",
+      "slot": "sprint",
+      "icon": "drop",
+      "description": "Replaces sprint with a short burst over smooth voxel terrain."
+    },
+    {
+      "id": "low-gravity-jump",
+      "name": "Low Gravity Jump",
+      "family": "movement",
+      "slot": "jump",
+      "icon": "orb",
+      "description": "Adds a floaty second-stage jump for open terrain traversal."
+    },
+    {
+      "id": "silent-crouch",
+      "name": "Silent Crouch",
+      "family": "movement",
+      "slot": "sneak",
+      "icon": "person",
+      "description": "Turns crouch into a lower-profile movement stance."
+    },
+    {
+      "id": "hover-flight",
+      "name": "Hover Flight",
+      "family": "movement",
+      "slot": "flight",
+      "icon": "castle",
+      "description": "Allows short-duration inspection flight in the test world."
+    },
+    {
+      "id": "terrain-sense",
+      "name": "Terrain Sense",
+      "family": "passive",
+      "slot": "passive",
+      "icon": "tome",
+      "description": "Highlights nearby editable terrain material transitions."
+    }
+  ]
+}
