@@ -16,6 +16,21 @@ const projection = {
   selection: { version: 1, selectedCharacterId: "character-1", characters: [], canEnterWorld: true, resumeStage: "world-entry", reason: null },
 };
 
+test("the live client may use Knowhere's public Gateway subdomain", () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = { location: { origin: "https://knowhere.fyi" } };
+  try {
+    assert.doesNotThrow(() => createGatewayClient("https://matrix.knowhere.fyi"));
+    assert.throws(
+      () => createGatewayClient("https://gateway.attacker.example"),
+      /same-origin public surface/,
+    );
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
 test("world entry and bootstrap stay on the configured credentialed Gateway surface", async () => {
   const requests = [];
   const request = async (input, init) => {

@@ -204,7 +204,12 @@ function normalizeBaseUrl(value: string | URL): URL {
   if (url.username || url.password || url.search || url.hash) {
     throw new Error("The Gateway URL cannot contain credentials, query parameters, or fragments.");
   }
-  if (typeof window !== "undefined" && url.origin !== window.location.origin) {
+  const isPublicKnowhereGateway = url.origin === "https://matrix.knowhere.fyi";
+  if (
+    typeof window !== "undefined"
+    && url.origin !== window.location.origin
+    && !isPublicKnowhereGateway
+  ) {
     throw new Error("The browser Gateway must use the current same-origin public surface.");
   }
   return url;
