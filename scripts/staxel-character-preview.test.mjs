@@ -151,7 +151,7 @@ test("player presentation activates only for matching server-confirmed session, 
 });
 
 test("the next controller slice preserves the client-only and attribution gates", async () => {
-  const tasklist = await readFile(tasklistPath, "utf8");
+  const tasklist = (await readFile(tasklistPath, "utf8")).replaceAll("\r\n", "\n");
 
   assert.match(tasklist, /CC-BY-4\.0/);
   assert.match(tasklist, /andruha1801/);
