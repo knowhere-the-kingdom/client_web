@@ -2962,6 +2962,13 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
 .atlas-stash-footer { position: relative; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 1.55rem 1.1rem; border-top: 0.0625rem solid color-mix(in srgb, var(--atlas-gold) 24%, transparent); color: var(--atlas-text-secondary); font-size: 0.62rem; }
 .atlas-stash-footer span { display: inline-flex; align-items: center; gap: 0.38rem; }.atlas-stash-footer small { color: var(--atlas-text-tertiary); }
 .atlas-equipment-region-grid,.atlas-map-stage,.atlas-map-card,.atlas-list-row,.atlas-skill-chip,.atlas-skill-card { border-color: color-mix(in srgb, var(--atlas-gold-muted) 48%, transparent); }
+
+.atlas-character-actions { display: flex; justify-content: flex-end; padding: 0 1.1rem 1.1rem; }
+.atlas-character-actions .atlas-secondary-button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.atlas-character-placeholder { display: grid; gap: 1rem; width: min(32rem, 100%); padding: 1.5rem; }
+.atlas-character-placeholder h1,.atlas-character-placeholder p { margin: 0; }
+.atlas-character-placeholder p { color: var(--atlas-text-secondary); line-height: 1.5; }
+.atlas-character-placeholder .atlas-secondary-button { justify-self: start; }
 .atlas-map-marker-player { color: var(--atlas-map-accent); filter: drop-shadow(0 0 0.35rem var(--atlas-map-accent)); }
 
 @media (max-width: 72rem) {
