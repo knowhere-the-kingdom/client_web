@@ -291,7 +291,7 @@ export function createGatewayClient(
     try {
       const response = await request(new URL(path, gatewayUrl), {
         method,
-        credentials: "same-origin",
+        credentials: "include",
         headers,
         body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
         signal,
@@ -344,7 +344,7 @@ export function createGatewayClient(
       try {
         const response = await request(new URL(GATEWAY_CLIENT_ROUTES.health, gatewayUrl), {
           method: "GET",
-          credentials: "same-origin",
+          credentials: "include",
           headers: {
             accept: "application/json",
             "x-knowhere-protocol-version": GATEWAY_PROTOCOL_VERSION,

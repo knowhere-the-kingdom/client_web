@@ -16,7 +16,7 @@ const projection = {
   selection: { version: 1, selectedCharacterId: "character-1", characters: [], canEnterWorld: true, resumeStage: "world-entry", reason: null },
 };
 
-test("world entry and bootstrap stay on the same-origin Gateway surface", async () => {
+test("world entry and bootstrap stay on the configured credentialed Gateway surface", async () => {
   const requests = [];
   const request = async (input, init) => {
     requests.push({ input: String(input), init });
@@ -32,7 +32,7 @@ test("world entry and bootstrap stay on the same-origin Gateway surface", async 
   const bootstrap = await client.getWorldBootstrap();
   assert.equal(bootstrap.ok, true);
   assert.deepEqual(requests.map(({ input }) => input), ["https://client.example/v1/worlds/entry", "https://client.example/v1/worlds/bootstrap"]);
-  assert.equal(requests[0].init.credentials, "same-origin");
+  assert.equal(requests[0].init.credentials, "include");
   assert.equal(requests[0].init.headers.authorization, undefined);
 });
 
