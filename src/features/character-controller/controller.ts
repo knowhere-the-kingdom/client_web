@@ -1,5 +1,6 @@
-import type { AbilitySlot, CharacterActionSignal, CharacterControllerState, CharacterMovementModifiers, EntityRuntimeContract, EntityRuntimeSnapshotInput, MovementDirection, CharacterActionId, CharacterBindings, CharacterControllerFrame, CharacterControllerTimers, CharacterRenderEvent, SkillRuntimeContract } from "./types";
+import type { AbilitySlot, CharacterActionSignal, CharacterControllerState, CharacterMovementModifiers, EntityRuntimeContract, EntityRuntimeSnapshotInput, MovementDirection, CharacterActionId, CharacterBindings, CharacterControllerFrame, CharacterControllerTimers, CharacterGamepadSettings, CharacterRenderEvent, SkillRuntimeContract } from "./types";
 import { createMovementActionsReadModel } from "./movementActions";
+import { applyGamepadDeadzone, gamepadDirectionalAxisValue, normalizedGamepadBinding, standardGamepadButtonIndex } from "./gamepadInput";
 
 const DOUBLE_TAP_MS = 280;
 const DODGE_DURATION_MS = 320;
@@ -49,6 +50,12 @@ const defaultKeys: Readonly<Record<string, CharacterActionId>> = {
   control: "crouch",
   alt: "flight",
 };
+
+const runtimeGamepadActions = new Set<CharacterActionId>([
+  "move-forward", "move-back", "strafe-left", "strafe-right",
+  "sprint", "jump", "crouch", "flight",
+  "actionbar-1", "actionbar-2", "actionbar-3", "actionbar-4",
+]);
 
 function initialState(): CharacterControllerState {
   return {
@@ -107,6 +114,10 @@ export class CharacterController {
   private pendingJump = false;
   private gamepadMove = { forward: 0, right: 0 };
   private gamepadLook = { yaw: 0, pitch: 0 };
+  private gamepadSettings: CharacterGamepadSettings = { enabled: true, invertY: false, deadzone: 0.12 };
+  private readonly gamepadButtonActions = new Map<number, CharacterActionId>();
+  private readonly gamepadAxisActions = new Map<CharacterActionId, string>();
+  private gamepadLookBinding = "right stick";
   private pendingPointerAction: Readonly<{ button: number; slot: AbilitySlot }> | null = null;
 
   constructor() {
@@ -140,6 +151,9 @@ export class CharacterController {
     this.bindings = bindings;
     this.keyActions.clear();
     this.pointerActions.clear();
+    this.gamepadButtonActions.clear();
+    this.gamepadAxisActions.clear();
+    this.gamepadLookBinding = "right stick";
     Object.entries(defaultKeys).forEach(([key, action]) => this.keyActions.set(key, action));
     bindings.forEach((binding) => {
       const action = actionAliases[binding.id] ?? binding.id as CharacterActionId;
@@ -154,7 +168,33 @@ export class CharacterController {
         if (value === "Unbound" || value === "Hardcoded" || value.startsWith("Double-tap") || value.startsWith("Mouse")) continue;
         this.keyActions.set(normalizedKey(value), action);
       }
+      if (!binding.gamepad || binding.gamepad === "Unbound") return;
+      const gamepadBinding = normalizedGamepadBinding(binding.gamepad);
+      if (action === "look" && gamepadBinding === "right stick") {
+        this.gamepadLookBinding = gamepadBinding;
+        return;
+      }
+      if (!runtimeGamepadActions.has(action)) return;
+      if (["left stick up", "left stick down", "left stick left", "left stick right"].includes(gamepadBinding)) {
+        this.gamepadAxisActions.set(action, gamepadBinding);
+        return;
+      }
+      const button = standardGamepadButtonIndex(gamepadBinding);
+      if (button !== undefined && !this.gamepadButtonActions.has(button)) this.gamepadButtonActions.set(button, action);
     });
+  }
+
+  configureGamepad(settings: CharacterGamepadSettings) {
+    this.gamepadSettings = {
+      enabled: settings.enabled,
+      invertY: settings.invertY,
+      deadzone: Math.max(0, Math.min(0.95, settings.deadzone)),
+    };
+    if (!this.gamepadSettings.enabled) {
+      this.gamepadMove = { forward: 0, right: 0 };
+      this.gamepadLook = { yaw: 0, pitch: 0 };
+      this.syncGamepadButtons(new Set());
+    }
   }
 
   handleActionSignal(signal: CharacterActionSignal) {
@@ -172,21 +212,27 @@ export class CharacterController {
 
   pollGamepads(gamepads: readonly (Gamepad | null)[]) {
     const gamepad = gamepads.find((candidate) => candidate?.connected) ?? null;
-    if (!gamepad || this.state.flags.inputLocked) {
+    if (!this.gamepadSettings.enabled || !gamepad || this.state.flags.inputLocked) {
       this.gamepadMove = { forward: 0, right: 0 };
       this.gamepadLook = { yaw: 0, pitch: 0 };
       this.syncGamepadButtons(new Set());
       return;
     }
-    const deadzone = (value: number) => Math.abs(value) < 0.16 ? 0 : Math.sign(value) * ((Math.abs(value) - 0.16) / 0.84);
-    this.gamepadMove = { forward: -deadzone(gamepad.axes[1] ?? 0), right: deadzone(gamepad.axes[0] ?? 0) };
-    this.gamepadLook = { yaw: deadzone(gamepad.axes[2] ?? 0) * 0.035, pitch: deadzone(gamepad.axes[3] ?? 0) * 0.028 };
+    const leftX = applyGamepadDeadzone(gamepad.axes[0] ?? 0, this.gamepadSettings.deadzone);
+    const leftY = applyGamepadDeadzone(gamepad.axes[1] ?? 0, this.gamepadSettings.deadzone);
+    const axisValue = (action: CharacterActionId) => gamepadDirectionalAxisValue(this.gamepadAxisActions.get(action), leftX, leftY);
+    this.gamepadMove = {
+      forward: axisValue("move-forward") - axisValue("move-back"),
+      right: axisValue("strafe-right") - axisValue("strafe-left"),
+    };
+    this.gamepadLook = this.gamepadLookBinding === "right stick"
+      ? {
+          yaw: applyGamepadDeadzone(gamepad.axes[2] ?? 0, this.gamepadSettings.deadzone) * 0.035,
+          pitch: applyGamepadDeadzone(gamepad.axes[3] ?? 0, this.gamepadSettings.deadzone) * 0.028 * (this.gamepadSettings.invertY ? -1 : 1),
+        }
+      : { yaw: 0, pitch: 0 };
     const pressed = new Set<CharacterActionId>();
-    const buttonActions: ReadonlyArray<readonly [number, CharacterActionId]> = [
-      [0, "jump"], [1, "crouch"], [3, "flight"], [10, "sprint"],
-      [12, "actionbar-4"], [13, "actionbar-3"], [14, "actionbar-1"], [15, "actionbar-2"],
-    ];
-    buttonActions.forEach(([index, action]) => { if (gamepad.buttons[index]?.pressed) pressed.add(action); });
+    this.gamepadButtonActions.forEach((action, index) => { if (gamepad.buttons[index]?.pressed) pressed.add(action); });
     this.syncGamepadButtons(pressed);
   }
 

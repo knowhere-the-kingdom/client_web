@@ -87,6 +87,7 @@ export const initialBindings: SettingsBinding[] = [
   { id: "map-zoom-in", group: "UI", label: "Map Zoom In", primary: "Scroll Up", secondary: "=", gamepad: "Right Bumper" },
   { id: "map-zoom-out", group: "UI", label: "Map Zoom Out", primary: "Scroll Down", secondary: "-", gamepad: "Left Bumper" },
   { id: "backpack", group: "UI", label: "Backpack", primary: "B", secondary: "Unbound", gamepad: "Menu Right" },
+  { id: "stash", group: "UI", label: "Stash", primary: "I", secondary: "Unbound", gamepad: "Unbound" },
   { id: "character", group: "UI", label: "Character", primary: "C", secondary: "Unbound", gamepad: "Menu Left" },
   { id: "open-chat", group: "Chat", label: "Toggle Chat", primary: "T", secondary: "Unbound", gamepad: "Unbound" }
 ];

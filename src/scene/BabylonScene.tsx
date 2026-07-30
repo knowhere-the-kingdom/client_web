@@ -15,11 +15,13 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { characterController, gameplayMouseMode, routeCharacterBlockFaceTargetSource } from "../features/character-controller";
 import type { CharacterActionSignal } from "../features/character-controller";
+import { CHARACTER_INPUT_SETTINGS_EVENT, readCharacterInputSettings, type CharacterInputSettingsEventDetail } from "../features/character-controller/runtimeSettings";
 import { persistWorldPosition, restoreWorldPosition } from "../features/character-controller/positionPersistence";
 import type { WorldPositionIdentity } from "../features/character-controller/positionPersistence";
 import { loadActiveStatefulWorld } from "./statefulWorldRuntime";
 import type { GardenSceneProjectionV1 } from "../api/gateway-contract";
 import { createMythicSun } from "./mythic-sun";
+import { initialBindings } from "../hud/demoData";
 
 const SEA_LEVEL = 0;
 const SOLID_BASE = -42;
@@ -98,27 +100,7 @@ export function setWorldgenGeneratorConfig(config: WorldgenGeneratorConfig) {
   activeWorldgenGeneratorConfig = config;
 }
 
-function readGameplayMouseSettings() {
-  const fallback = { mouseX: DEFAULT_MOUSE_X, mouseY: DEFAULT_MOUSE_Y, invertMouseY: false };
-  if (typeof window === "undefined") return fallback;
-  try {
-    for (let index = 0; index < window.localStorage.length; index += 1) {
-      const key = window.localStorage.key(index);
-      if (!key?.startsWith("knowhere.dashboard.preferences.v1.")) continue;
-      const parsed = JSON.parse(window.localStorage.getItem(key) ?? "{}") as { controls?: Partial<typeof fallback> };
-      return {
-        mouseX: typeof parsed.controls?.mouseX === "number" ? parsed.controls.mouseX : fallback.mouseX,
-        mouseY: typeof parsed.controls?.mouseY === "number" ? parsed.controls.mouseY : fallback.mouseY,
-        invertMouseY: parsed.controls?.invertMouseY === true,
-      };
-    }
-  } catch {
-    return fallback;
-  }
-  return fallback;
-}
-
-export function applyCharacterLookToCamera(camera: UniversalCamera, look: Readonly<{ yaw: number; pitch: number }>, settings = readGameplayMouseSettings()) {
+export function applyCharacterLookToCamera(camera: UniversalCamera, look: Readonly<{ yaw: number; pitch: number }>, settings = { mouseX: DEFAULT_MOUSE_X, mouseY: DEFAULT_MOUSE_Y, invertMouseY: false }) {
   if (look.yaw === 0 && look.pitch === 0) return;
   const yawSensitivity = LOOK_YAW_RADIANS * Math.max(1, settings.mouseX) / DEFAULT_MOUSE_X;
   const pitchSensitivity = LOOK_PITCH_RADIANS * Math.max(1, settings.mouseY) / DEFAULT_MOUSE_Y;
@@ -1216,6 +1198,27 @@ function createStarfield(scene: Scene) {
 export function BabylonScene({ projection, worldIdentity, interactive = true }: Readonly<{ projection: GardenSceneProjectionV1; worldIdentity?: WorldPositionIdentity; interactive?: boolean }>) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const interactionEnabledRef = useRef(interactive);
+  const inputSettingsRef = useRef({ mouseX: DEFAULT_MOUSE_X, mouseY: DEFAULT_MOUSE_Y, invertMouseY: false });
+
+  useEffect(() => {
+    if (!worldIdentity) return;
+    const applySettings = (settings: ReturnType<typeof readCharacterInputSettings>) => {
+      inputSettingsRef.current = settings;
+      characterController.configureBindings(settings.bindings.length > 0 ? settings.bindings : initialBindings);
+      characterController.configureGamepad({ enabled: settings.gamepadEnabled, invertY: settings.invertGamepadY, deadzone: settings.deadzone / 100 });
+    };
+    const applyStored = () => applySettings(readCharacterInputSettings(window.localStorage, worldIdentity.characterId));
+    const deferred = window.setTimeout(applyStored, 0);
+    const handleSettings = (event: Event) => {
+      const detail = (event as CustomEvent<CharacterInputSettingsEventDetail>).detail;
+      if (detail?.accountId === worldIdentity.characterId) applySettings(detail.settings);
+    };
+    window.addEventListener(CHARACTER_INPUT_SETTINGS_EVENT, handleSettings);
+    return () => {
+      window.clearTimeout(deferred);
+      window.removeEventListener(CHARACTER_INPUT_SETTINGS_EVENT, handleSettings);
+    };
+  }, [worldIdentity?.characterId]);
 
   useEffect(() => {
     interactionEnabledRef.current = interactive;
@@ -1524,7 +1527,7 @@ export function BabylonScene({ projection, worldIdentity, interactive = true }: 
       lastFrameAt = now;
       characterController.pollGamepads(interactionEnabledRef.current ? navigator.getGamepads?.() ?? [] : []);
       const controllerFrame = characterController.tick(now, deltaSeconds);
-      applyCharacterLookToCamera(camera, controllerFrame.look);
+      applyCharacterLookToCamera(camera, controllerFrame.look, inputSettingsRef.current);
       const routedTargetSource = routeCharacterBlockFaceTargetSource({
         mouseMode: gameplayMouseMode.getSnapshot(),
         viewport: { width: canvas.clientWidth, height: canvas.clientHeight },

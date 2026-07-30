@@ -42,10 +42,10 @@ const creatorLinks: readonly TreeLink[] = [
 ];
 
 const managerKinds: readonly ManagerKind[] = ["users", "roles", "groups", "skills", "stats", "materia"];
-const gameSettingsPages: readonly Page[] = ["gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "display", "audio"];
+const gameSettingsPages: readonly Page[] = ["gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "controls-touch", "display", "audio"];
 const knownPages = new Set<Page>([
   "account", "profile", "store",
-  "gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "display", "audio",
+  "gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "controls-touch", "display", "audio",
   "world", "material", "model", "item", "biome", "generator", "admin", "entities",
   ...managerKinds,
 ]);
@@ -64,7 +64,7 @@ const pageLabels: Partial<Record<Page, string>> = {
 
 function requestedPage(): Page {
   const value = new URLSearchParams(window.location.search).get("page") as Page | null;
-  return value && knownPages.has(value) && !capabilityPages.has(value) ? value : "account";
+  return value && knownPages.has(value) ? value : "account";
 }
 
 function NavigationTree({
@@ -151,7 +151,7 @@ export function Dashboard({ projection, onBack, onLogout }: Readonly<{
   return <main className="dashboard-page app-page" aria-label="Knowhere Dashboard">
     <aside className="dashboard-sidebar" aria-label="Dashboard navigation">
       <button className="dashboard-brand" type="button" onClick={onBack} aria-label="Return to game">
-        <img src="/inventory/items/icons/designer-keyhole.svg" alt="" />
+        <img src="/dashboard/escape.svg" alt="" />
         <span className="dashboard-brand__copy"><strong>Knowhere</strong><span>Dashboard Prototype</span></span>
       </button>
 
@@ -166,10 +166,10 @@ export function Dashboard({ projection, onBack, onLogout }: Readonly<{
 
       <div className="dashboard-navigation__lower">
         <nav className="dashboard-navigation__admin" aria-label="Administration">
-          <NavigationTree id="admin" label="Admin Tools" target="admin" links={adminLinks} expanded={openTrees.has("admin")} page={page} onNavigate={navigate} onToggle={() => toggleTree("admin")} available={false} />
+          <NavigationTree id="admin" label="Admin Tools" target="admin" links={adminLinks} expanded={openTrees.has("admin")} page={page} onNavigate={navigate} onToggle={() => toggleTree("admin")} available />
         </nav>
         <nav className="dashboard-navigation__admin" aria-label="Creator tools">
-          <NavigationTree id="creator" label="Creator Tools" target="world" links={creatorLinks} expanded={openTrees.has("creator")} page={page} onNavigate={navigate} onToggle={() => toggleTree("creator")} available={false} />
+          <NavigationTree id="creator" label="Creator Tools" target="world" links={creatorLinks} expanded={openTrees.has("creator")} page={page} onNavigate={navigate} onToggle={() => toggleTree("creator")} available />
         </nav>
       </div>
 
@@ -194,7 +194,7 @@ export function Dashboard({ projection, onBack, onLogout }: Readonly<{
         : page === "profile" ? <DashboardSettingsPage page="profile" user={user} onNavigate={(next) => navigate(next as Page)} />
         : page === "store" ? <article className="dashboard-prototype-placeholder"><p className="dashboard-eyebrow">Store</p><h1>Store</h1><p>Store inventory will be added here.</p></article>
         : capabilityPages.has(page) ? <article className="dashboard-prototype-placeholder"><p className="dashboard-eyebrow">Unavailable</p><h1>Capability required</h1><p>This panel requires a server-validated capability projection.</p></article>
-        : (["gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "display", "audio"] as Page[]).includes(page) ? <DashboardSettingsPage page={page as SettingsDashboardPage} user={user} onNavigate={(next) => navigate(next as Page)} />
+        : (["gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "controls-touch", "display", "audio"] as Page[]).includes(page) ? <DashboardSettingsPage page={page as SettingsDashboardPage} user={user} onNavigate={(next) => navigate(next as Page)} />
         : <article className="dashboard-prototype-placeholder"><p className="dashboard-eyebrow">Creator Tools</p><h1>{pageLabels[page] ?? "Knowhere"}</h1><p>This workspace is preserved in navigation while its server-owned editing contract remains unavailable.</p></article>}
     </section>
   </main>;

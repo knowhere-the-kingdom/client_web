@@ -9,6 +9,7 @@ import { PlayerMapPanel } from "./PlayerMapPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import type { CanvasItem, CanvasItemLocation, DemoSkill, HudLogEntry, HudMapMarker, HudMapPosition, SettingsBinding } from "./types";
 import type { WorldHudProjectionV2 } from "../api/gateway-contract";
+import { AWARENESS_ITEM } from "../inventory/inventory-model";
 
 type OpenPanel = "login" | "account" | "equipment" | "tome" | "settings";
 type CrosshairState = "default" | "targetable" | "interact" | "blocked" | "place" | "place-valid" | "destructive";
@@ -66,9 +67,13 @@ const tomeAbilities = [
   abilityItem("tome-ultimate", "Ultimate", "orb", "Tome ability"),
   abilityItem("tome-action-1", "Action 1", "sword", "Tome ability"),
   abilityItem("tome-action-2", "Action 2", "flask", "Tome ability"),
+  abilityItem("tome-action-3", "Action 3", "target", "Tome ability"),
+  abilityItem("tome-passive-1", "Passive 1", "gem", "Tome passive"),
+  abilityItem("tome-passive-2", "Passive 2", "tome", "Tome passive"),
+  abilityItem("tome-passive-3", "Passive 3", "orb", "Tome passive"),
 ];
 const movementAbilityHotkeys = ["Shift", "DTAP", "Space", "Ctrl", "Alt"];
-const tomeAbilityHotkeys = ["Q", "F", "G"];
+const tomeAbilityHotkeys = ["Q", "E", "F", "", "", "", ""];
 const equipmentSlotLabels: ReadonlyMap<string, string> = new Map(prototypeEquipmentSlots.map((slot) => [slot.id, slot.label]));
 const demoRuntimeSkills = createDemoSkillContracts(demoSkills.skills as DemoSkill[]);
 const defaultMapPosition: HudMapPosition = { x: 0, z: 0, heading: 0 };
@@ -79,7 +84,7 @@ const defaultMapMarkers: HudMapMarker[] = [
   { id: "survey-party", kind: "party", label: "Garden survey party", x: -900, z: 1840, discovered: true },
 ];
 const compassHudItem: CanvasItem = { id: "hud-compass", type: "map", name: "Wayfinder Compass", w: 2, h: 2, icon: "target", note: "Toggle compass", loc: { kind: "limbo" } };
-const awarenessHudItem: CanvasItem = { id: "hud-awareness", type: "key", name: "Awareness", w: 2, h: 2, icon: "key", note: "Opens the Designer dashboard", loc: { kind: "limbo" } };
+const awarenessHudItem: CanvasItem = { id: "hud-awareness", type: "key", name: AWARENESS_ITEM.name, w: AWARENESS_ITEM.gridSize.width, h: AWARENESS_ITEM.gridSize.height, icon: "key", artPath: AWARENESS_ITEM.iconPath, note: AWARENESS_ITEM.description, loc: { kind: "limbo" } };
 const actionSlotName = (loadout: number, index: number) => loadout === 0 ? `action${index}` : `action-loadout-${loadout + 1}-${index}`;
 
 export function DesignerAwarenessSlot({ disabled, onActivate, onLogout }: { disabled: boolean; onActivate?: () => void; onLogout: () => void }) {
@@ -416,16 +421,13 @@ function EquipmentPanel({ activeCharacter, equipItem, onDrop, draggedItemId, onD
   return (
     <AtlasOverlay className="atlas-overlay-no-blur" onClose={onClose}>
       <section className="atlas-panel atlas-equipment-panel atlas-equipment-panel-prototype" role="dialog" aria-modal="true" aria-label={`${activeCharacter?.name ?? "No character"} equipment`}>
-        <header className="atlas-panel-header atlas-equipment-prototype-header">
-          <div><span className="atlas-eyebrow">Character equipment</span><h2>{activeCharacter?.name ?? "No character"}</h2></div>
-          <button type="button" className="atlas-close" onClick={onClose} aria-label="Close equipment"><AtlasIcon name="x" size={1} /></button>
-        </header>
+        <h2 className="sr-only">{activeCharacter?.name ?? "No character"} equipment</h2>
+        <button type="button" className="atlas-close atlas-equipment-prototype-close" onClick={onClose} aria-label="Close equipment"><AtlasIcon name="x" size={1} /></button>
         <div className="atlas-equipment-prototype-grid" aria-label="Equipment slots">
           {prototypeEquipmentSlots.map((slot) => {
             const item = equipItem(slot.id);
             return <AtlasItemSlot key={slot.id} item={item} label={slot.label} size="grid" className={`atlas-equipment-slot atlas-equipment-prototype-slot atlas-equipment-prototype-slot--${slot.id}`} style={{ gridColumn: `${slot.column} / span 1`, gridRow: `${slot.row} / span 1`, "--equipment-slot-cols": slot.cols, "--equipment-slot-rows": slot.rows } as CSSProperties} dropState={draggedItemId ? "valid" : undefined} onDrop={(event) => onDrop(event, slot.id)} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={(event) => item && onContextMenu(event, item, slot.id)} />;
           })}
-          <div className="atlas-equipment-prototype-avatar" aria-hidden="true"><AtlasIcon name={activeCharacter?.icon ?? "person"} size={3} /></div>
         </div>
       </section>
     </AtlasOverlay>
@@ -604,10 +606,6 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     characterController.configureBindings(bindings);
     saveControlBindings(bindings);
   }, [bindings]);
-
-  useEffect(() => {
-    setCompassOpen(openPanel !== "equipment");
-  }, [openPanel]);
 
   useEffect(() => {
     const handleBindingsChanged = (event: Event) => {
@@ -837,7 +835,13 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         });
         return;
       }
-      if (event.key.toLowerCase() === "b" && backpack) {
+      if (bindingUsesKey("backpack", event.key) && backpack) {
+        event.preventDefault();
+        setOpenPanel(null);
+        setOpenBagId((current) => current === backpack.id ? null : backpack.id);
+        return;
+      }
+      if (bindingUsesKey("stash", event.key)) {
         event.preventDefault();
         setOpenPanel(null);
         setOpenBagId((current) => current === "stashVault" ? null : "stashVault");
@@ -919,7 +923,6 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const setPanel = (panel: OpenPanel | null) => {
     setMapOpen(false);
     setOpenBagId(null);
-    setCompassOpen(panel !== "equipment");
     if (panel === "equipment") {
       gameplayMouseMode.cancelFreeDrag();
       if (document.pointerLockElement) document.exitPointerLock();
@@ -1033,7 +1036,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     else if (item.type === "account") setPanel("account");
     else if (item.type === "spirit") setSpiritOpen((current) => !current);
     else if (item.type === "character") setPanel("equipment");
-    else if (item.type === "bag") { const bagId = item.id === "fieldpack" ? "stashVault" : item.id; setOpenBagId((current) => current === bagId ? null : bagId); }
+    else if (item.type === "bag") setOpenBagId((current) => current === item.id ? null : item.id);
     else if (item.type === "tome") setPanel("tome");
     else if (item.type === "map") { setOpenPanel(null); setOpenBagId(null); setMapOpen(true); }
     else if (item.type === "settings") window.location.assign("/dashboard");
@@ -1075,9 +1078,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     <div className={`hud-root atlas-hud prototype-hud${poweringDown ? " atlas-hud-powering-down" : ""}`} aria-busy={poweringDown} onContextMenu={(event) => { event.preventDefault(); setContextMenu(null); }}>
       <header className="atlas-topbar prototype-hud__top">
         <div className="atlas-utility-group prototype-hud__designer"><DesignerAwarenessSlot disabled={poweringDown} onActivate={onOpenDashboard} onLogout={onLogout} /></div>
-        {openPanel === "equipment"
-          ? <div className="prototype-hud__compass-slot prototype-hud__compass-slot--equipment"><AtlasItemSlot item={compassHudItem} label="Compass" size="utility" hotkey="N" /></div>
-          : compassOpen
+        {compassOpen
           ? <CompassBar player={mapPosition} markers={defaultMapMarkers} onCollapse={() => setCompassOpen(false)} />
           : <div className="prototype-hud__compass-slot"><AtlasItemSlot item={compassHudItem} label="Compass" size="utility" hotkey="N" onClick={() => setCompassOpen(true)} /></div>}
         <div className="prototype-hud__spirit">{renderSlot("spirit", "Spirit", hudItem("spirit"), "utility", "P")}</div>
@@ -1097,7 +1098,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
 
       <section className="prototype-hud__knowledge" aria-label="Knowledge and skills">
         <div className="atlas-mini-ability-group prototype-hud__knowledge-skills" role="group" aria-label="Knowledge skills">
-          {tomeAbilities.map((ability, index) => { const slot = abilitySlotForHud(ability.id); return <AtlasItemSlot key={ability.id} item={slot ? withAbilityCooldown(ability, slot) : ability} label={ability.name} size={index === 0 ? "small" : "micro"} hotkey={tomeAbilityHotkeys[index]} onClick={() => { if (slot) characterController.activateSlot(slot); }} />; })}
+          {tomeAbilities.map((ability, index) => { const slot = abilitySlotForHud(ability.id); return <AtlasItemSlot key={ability.id} item={slot ? withAbilityCooldown(ability, slot) : ability} label={ability.name} size={index === 0 ? "small" : "micro"} hotkey={tomeAbilityHotkeys[index] || undefined} onClick={() => { if (slot) characterController.activateSlot(slot); }} />; })}
         </div>
         {renderSlot("tome", "Knowledge", tome, "utility", "U")}
       </section>
@@ -1113,17 +1114,18 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         </form>
       </section> : null}
 
-      <nav className="atlas-actionbar prototype-hud__actionbar" aria-label="Character and action slots">
+      <section className="prototype-hud__creature" aria-label="Character slot">
+        {renderSlot("character", "Character", activeCharacter, "utility", "C")}
+        <span className="prototype-hud__loadout-index">Loadout {activeLoadout + 1}/3 · X</span>
+      </section>
+
+      <nav className="atlas-actionbar prototype-hud__actionbar" aria-label="Action slots">
         <div className="prototype-hud__action-side prototype-hud__action-side--left">
           <div className="prototype-hud__action-vital prototype-hud__action-vital--health"><MeterRail kind="health" current={controllerState.health.current} max={controllerState.health.maximum} /></div>
           <div className="prototype-hud__action-grid" aria-label="Odd action slots">
             {oddActionIndices.map((index) => renderSlot(actionSlotName(activeLoadout, index), `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
           </div>
           <AtlasItemSlot item={selectedLeftItem} label="Left Click" size="action" hotkey="LMB" selected className="prototype-hud__hand-action" onClick={() => activateHandAction("left")} />
-        </div>
-        <div className="prototype-hud__character-anchor" aria-label="Character slot">
-          {renderSlot("character", "Character", activeCharacter, "utility", "C")}
-          <span className="prototype-hud__loadout-index">Loadout {activeLoadout + 1}/3 · X</span>
         </div>
         <div className="prototype-hud__action-side prototype-hud__action-side--right">
           <div className="prototype-hud__action-vital prototype-hud__action-vital--spirit"><MeterRail kind="spirit" current={controllerState.resources.spirit.current} max={controllerState.resources.spirit.maximum} /></div>

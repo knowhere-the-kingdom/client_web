@@ -143,6 +143,7 @@ export type CanvasItem = {
   w: number;
   h: number;
   icon: string;
+  artPath?: string;
   note?: string;
   grid?: {
     cols: number;

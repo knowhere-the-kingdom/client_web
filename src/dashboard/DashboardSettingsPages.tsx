@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { initialBindings, saveControlBindings } from "../hud/demoData";
 import type { SettingsBinding } from "../hud/types";
+import { publishStoredCharacterInputSettings } from "../features/character-controller/runtimeSettings";
 
 export type SettingsDashboardPage =
   | "profile"
@@ -10,6 +11,7 @@ export type SettingsDashboardPage =
   | "controls-ui"
   | "controls-mouse"
   | "controls-gamepad"
+  | "controls-touch"
   | "display"
   | "audio";
 
@@ -34,12 +36,16 @@ type DashboardPreferenceDocument = {
     securityAlerts: boolean;
   };
   gameplay: {
-    combatFloaters: boolean;
-    pickupLog: boolean;
-    holdToInteract: boolean;
-    tutorials: boolean;
-    cameraShake: number;
-    fieldOfView: number;
+    crosshairEnabled: boolean;
+    crosshairSize: number;
+    crosshairOpacity: number;
+    crosshairColor: string;
+    crosshairOutline: boolean;
+    centerDot: boolean;
+    lootLabels: boolean;
+    lootMinimumQuality: string;
+    lootDistance: boolean;
+    lootMaxDistance: number;
   };
   controls: {
     bindings: SettingsBinding[];
@@ -75,9 +81,10 @@ type DashboardPreferenceDocument = {
 
 const controlPages: ReadonlyArray<{ page: ControlsPage; label: string }> = [
   { page: "controls-actions", label: "Game Actions" },
-  { page: "controls-ui", label: "UI Controls" },
-  { page: "controls-mouse", label: "Mouse Settings" },
+  { page: "controls-ui", label: "Interface" },
+  { page: "controls-mouse", label: "Mouse" },
   { page: "controls-gamepad", label: "Gamepad" },
+  { page: "controls-touch", label: "Touch" },
 ];
 
 function defaults(displayName: string): DashboardPreferenceDocument {
@@ -85,7 +92,7 @@ function defaults(displayName: string): DashboardPreferenceDocument {
     version: 1,
     profile: { displayName, title: "Wanderer", pronouns: "", about: "Exploring the Kingdom of Knowhere.", status: "Available", visibility: "public" },
     account: { email: "", locale: "English (US)", timezone: "Local device time", announcements: true, securityAlerts: true },
-    gameplay: { combatFloaters: true, pickupLog: true, holdToInteract: false, tutorials: true, cameraShake: 35, fieldOfView: 75 },
+    gameplay: { crosshairEnabled: true, crosshairSize: 42, crosshairOpacity: 88, crosshairColor: "#70b9b2", crosshairOutline: true, centerDot: true, lootLabels: true, lootMinimumQuality: "Common", lootDistance: true, lootMaxDistance: 24 },
     controls: { bindings: initialBindings.map((binding) => ({ ...binding })), mouseX: 50, mouseY: 44, invertMouseY: false, gamepadEnabled: true, invertGamepadY: false, deadzone: 12, vibration: 60 },
     display: { windowMode: "Borderless", resolution: "Native", quality: "High", renderDistance: 70, hudScale: 100, shadows: true, bloom: true, motionBlur: false },
     audio: { master: 80, voice: 72, music: 55, effects: 75, ambience: 68, muteUnfocused: false, output: "System default" },
@@ -150,6 +157,7 @@ export function DashboardSettingsPage({
     const next = { ...preferences, updatedAt: new Date().toISOString() };
     window.localStorage.setItem(storageKey(user.id), JSON.stringify(next));
     saveControlBindings(next.controls.bindings);
+    publishStoredCharacterInputSettings(user.id);
     setPreferences(next);
     setSaved(next.updatedAt);
   };
@@ -157,6 +165,7 @@ export function DashboardSettingsPage({
     const next = defaults(user.displayName);
     window.localStorage.setItem(storageKey(user.id), JSON.stringify(next));
     saveControlBindings(next.controls.bindings);
+    publishStoredCharacterInputSettings(user.id);
     setPreferences(next);
     setSaved(null);
   };
@@ -200,7 +209,15 @@ function AccountPage({ user, value, onChange, onSave, saved }: Readonly<{ user: 
 }
 
 function GameplayPage({ value, onChange, onSave, onReset, saved }: Readonly<{ value: DashboardPreferenceDocument["gameplay"]; onChange: (value: DashboardPreferenceDocument["gameplay"]) => void; onSave: () => void; onReset: () => void; saved: string | null }>) {
-  return <PageShell eyebrow="Game Settings" title="Gameplay" description="Tune interaction feedback and camera comfort without mounting the game." saved={saved} onSave={onSave} onReset={onReset}><div className="dashboard-section-grid"><Panel title="Interaction"><Toggle label="Combat floaters" description="Show damage, healing, and status numbers." checked={value.combatFloaters} onChange={(checked) => onChange({ ...value, combatFloaters: checked })} /><Toggle label="Auto-open pickup log" description="Reveal the log when items are collected." checked={value.pickupLog} onChange={(checked) => onChange({ ...value, pickupLog: checked })} /><Toggle label="Hold to interact" description="Require a short hold for world interactions." checked={value.holdToInteract} onChange={(checked) => onChange({ ...value, holdToInteract: checked })} /><Toggle label="Tutorial prompts" description="Show contextual help for unfamiliar systems." checked={value.tutorials} onChange={(checked) => onChange({ ...value, tutorials: checked })} /></Panel><Panel title="Camera comfort"><Slider label="Camera shake" value={value.cameraShake} onChange={(cameraShake) => onChange({ ...value, cameraShake })} /><Slider label="Field of view" value={value.fieldOfView} min={55} max={105} suffix="°" onChange={(fieldOfView) => onChange({ ...value, fieldOfView })} /></Panel></div></PageShell>;
+  const [tab, setTab] = useState<"crosshair" | "loot">("crosshair");
+  return <PageShell eyebrow="Game Settings" title="Game" description="Configure the live reticle and loot-label presentation." saved={saved} onSave={onSave} onReset={onReset}>
+    <nav className="dashboard-subtabs" aria-label="Game settings categories">
+      <button type="button" className={tab === "crosshair" ? "active" : ""} onClick={() => setTab("crosshair")}>Crosshair</button>
+      <button type="button" className={tab === "loot" ? "active" : ""} onClick={() => setTab("loot")}>Loot Options</button>
+    </nav>
+    {tab === "crosshair" ? <div className="dashboard-preview-layout"><Panel title="Crosshair Settings" description="Drives the live reticle and shared target Inspector where a world target consumer is available."><Toggle label="Show crosshair" description="Display the world targeting reticle." checked={value.crosshairEnabled} onChange={(crosshairEnabled) => onChange({ ...value, crosshairEnabled })} /><Slider label="Reticle size" value={value.crosshairSize} min={16} max={80} suffix="px" onChange={(crosshairSize) => onChange({ ...value, crosshairSize })} /><Slider label="Opacity" value={value.crosshairOpacity} onChange={(crosshairOpacity) => onChange({ ...value, crosshairOpacity })} /><Field label="Reticle color"><input type="color" value={value.crosshairColor} onChange={(event) => onChange({ ...value, crosshairColor: event.target.value })} /></Field><Toggle label="Show outline" description="Add a high-contrast reticle outline." checked={value.crosshairOutline} onChange={(crosshairOutline) => onChange({ ...value, crosshairOutline })} /><Toggle label="Show center dot" description="Place a dot at the exact target point." checked={value.centerDot} onChange={(centerDot) => onChange({ ...value, centerDot })} /></Panel><figure className="dashboard-live-preview"><figcaption>Live settings preview</figcaption><div className="dashboard-crosshair-preview" style={{ "--preview-crosshair-size": `${value.crosshairSize}px`, "--preview-crosshair-color": value.crosshairColor, opacity: value.crosshairEnabled ? value.crosshairOpacity / 100 : 0 } as CSSProperties}><i className={value.crosshairOutline ? "outlined" : ""} />{value.centerDot ? <b /> : null}</div></figure></div> : null}
+    {tab === "loot" ? <div className="dashboard-preview-layout"><Panel title="Loot Options" description="Preview label preferences. In-world application awaits a loot-label renderer consumer."><Toggle label="Show loot labels" description="Display labels for nearby dropped items." checked={value.lootLabels} onChange={(lootLabels) => onChange({ ...value, lootLabels })} /><Field label="Minimum quality"><select value={value.lootMinimumQuality} onChange={(event) => onChange({ ...value, lootMinimumQuality: event.target.value })}><option>Common</option><option>Uncommon</option><option>Rare</option><option>Epic</option><option>Cosmic</option></select></Field><Toggle label="Show distance" description="Include distance in each visible label." checked={value.lootDistance} onChange={(lootDistance) => onChange({ ...value, lootDistance })} /><Slider label="Maximum label distance" value={value.lootMaxDistance} min={4} max={64} suffix="m" onChange={(lootMaxDistance) => onChange({ ...value, lootMaxDistance })} /></Panel><figure className="dashboard-live-preview"><figcaption>Live settings preview</figcaption><div className="dashboard-loot-preview">{value.lootLabels ? <span><b>Awareness</b><small>{value.lootMinimumQuality}{value.lootDistance ? ` · ${Math.min(12, value.lootMaxDistance)}m` : ""}</small></span> : <em>Loot labels disabled</em>}</div></figure></div> : null}
+  </PageShell>;
 }
 
 function ControlsPage({ page, value, onChange, onNavigate, onSave, onReset, saved }: Readonly<{ page: ControlsPage; value: DashboardPreferenceDocument["controls"]; onChange: (value: DashboardPreferenceDocument["controls"]) => void; onNavigate: (page: SettingsDashboardPage) => void; onSave: () => void; onReset: () => void; saved: string | null }>) {
@@ -252,7 +269,7 @@ function ControlsPage({ page, value, onChange, onNavigate, onSave, onReset, save
       </div>
     </Panel>
   )) : null;
-  return <PageShell eyebrow="Game Settings · Controls" title={controlPages.find((entry) => entry.page === page)?.label ?? "Controls"} description="Bindings and device preferences are shared with the gameplay HUD." saved={saved} onSave={onSave} onReset={onReset}><nav className="dashboard-subtabs">{controlPages.map((entry) => <button type="button" className={page === entry.page ? "active" : ""} onClick={() => onNavigate(entry.page)} key={entry.page}>{entry.label}</button>)}</nav>{bindingPanels}{page === "controls-mouse" ? <div className="dashboard-section-grid"><Panel title="Pointer response"><Slider label="Horizontal sensitivity" value={value.mouseX} onChange={(mouseX) => onChange({ ...value, mouseX })} /><Slider label="Vertical sensitivity" value={value.mouseY} onChange={(mouseY) => onChange({ ...value, mouseY })} /><Toggle label="Invert vertical look" description="Reverse the mouse Y axis." checked={value.invertMouseY} onChange={(invertMouseY) => onChange({ ...value, invertMouseY })} /></Panel></div> : null}{page === "controls-gamepad" ? <div className="dashboard-section-grid"><Panel title="Gamepad configuration"><Toggle label="Enable gamepad" description="Accept input from the active controller." checked={value.gamepadEnabled} onChange={(gamepadEnabled) => onChange({ ...value, gamepadEnabled })} /><Toggle label="Invert camera Y" description="Reverse the right-stick vertical axis." checked={value.invertGamepadY} onChange={(invertGamepadY) => onChange({ ...value, invertGamepadY })} /><Slider label="Stick deadzone" value={value.deadzone} onChange={(deadzone) => onChange({ ...value, deadzone })} /><Slider label="Vibration" value={value.vibration} onChange={(vibration) => onChange({ ...value, vibration })} /></Panel><Panel title="Detected controller"><div className="dashboard-device-state"><i /><span><b>No controller detected</b><small>Connect a controller and press any button.</small></span></div></Panel></div> : null}</PageShell>;
+  return <PageShell eyebrow="Game Settings · Controls" title={controlPages.find((entry) => entry.page === page)?.label ?? "Controls"} description="Bindings and device preferences are shared with the gameplay HUD." saved={saved} onSave={onSave} onReset={onReset}><nav className="dashboard-subtabs">{controlPages.map((entry) => <button type="button" className={page === entry.page ? "active" : ""} onClick={() => onNavigate(entry.page)} key={entry.page}>{entry.label}</button>)}</nav>{bindingPanels}{page === "controls-mouse" ? <div className="dashboard-section-grid"><Panel title="Pointer response"><Slider label="Horizontal sensitivity" value={value.mouseX} onChange={(mouseX) => onChange({ ...value, mouseX })} /><Slider label="Vertical sensitivity" value={value.mouseY} onChange={(mouseY) => onChange({ ...value, mouseY })} /><Toggle label="Invert vertical look" description="Reverse the mouse Y axis." checked={value.invertMouseY} onChange={(invertMouseY) => onChange({ ...value, invertMouseY })} /></Panel></div> : null}{page === "controls-gamepad" ? <div className="dashboard-section-grid"><Panel title="Gamepad configuration"><Toggle label="Enable gamepad" description="Accept input from the active controller." checked={value.gamepadEnabled} onChange={(gamepadEnabled) => onChange({ ...value, gamepadEnabled })} /><Toggle label="Invert camera Y" description="Reverse the right-stick vertical axis." checked={value.invertGamepadY} onChange={(invertGamepadY) => onChange({ ...value, invertGamepadY })} /><Slider label="Stick deadzone" value={value.deadzone} onChange={(deadzone) => onChange({ ...value, deadzone })} /><Slider label="Vibration" value={value.vibration} onChange={(vibration) => onChange({ ...value, vibration })} /></Panel><Panel title="Detected controller"><div className="dashboard-device-state"><i /><span><b>No controller detected</b><small>Connect a controller and press any button.</small></span></div></Panel></div> : null}{page === "controls-touch" ? <div className="dashboard-section-grid"><Panel title="Touch Sources & Tuning" description="Semantic assignments share the player action bus; layout slots remain presentation metadata."><div className="dashboard-touch-source"><b>Movement</b><span>Left control region · camera-relative movement</span></div><div className="dashboard-touch-source"><b>Look</b><span>Right gameplay region · drag to look</span></div><div className="dashboard-touch-source"><b>Primary action</b><span>Action control · press and release semantics</span></div><div className="dashboard-touch-source"><b>Jump / Flight</b><span>Uses the same configured character actions as keyboard input</span></div></Panel><Panel title="Touch status"><div className="dashboard-device-state"><i /><span><b>Adaptive layout</b><small>Controls attach only on touch-capable gameplay surfaces.</small></span></div></Panel></div> : null}</PageShell>;
 }
 
 function DisplayPage({ value, onChange, onSave, onReset, saved }: Readonly<{ value: DashboardPreferenceDocument["display"]; onChange: (value: DashboardPreferenceDocument["display"]) => void; onSave: () => void; onReset: () => void; saved: string | null }>) {

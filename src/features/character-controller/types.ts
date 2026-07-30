@@ -143,6 +143,12 @@ export type CharacterBindings = ReadonlyArray<
   & Partial<Pick<SettingsBinding, "gamepad">>
 >;
 
+export type CharacterGamepadSettings = Readonly<{
+  enabled: boolean;
+  invertY: boolean;
+  deadzone: number;
+}>;
+
 export type CharacterActionSignal = Readonly<{
   actionId: CharacterActionId;
   phase: "pressed" | "released";

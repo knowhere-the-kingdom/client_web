@@ -77,6 +77,7 @@ export function AtlasIcon({ name, size = 1.35, className = "" }: { name: string;
 }
 
 export function AtlasItemIcon({ item, size = 1.5 }: { item: CanvasItem; size?: number }) {
+  if (item.artPath) return <img className="atlas-slot-art" src={item.artPath} alt="" draggable={false} />;
   const art = itemArt[item.icon];
   if (art) return <img className="atlas-slot-art" src={art} alt="" draggable={false} />;
   return <AtlasIcon name={item.icon} size={size} />;
