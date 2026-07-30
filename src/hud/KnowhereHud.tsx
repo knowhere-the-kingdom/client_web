@@ -959,7 +959,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   return (
     <div className={`hud-root atlas-hud prototype-hud${poweringDown ? " atlas-hud-powering-down" : ""}`} aria-busy={poweringDown} onContextMenu={(event) => { event.preventDefault(); setContextMenu(null); }}>
       <header className="atlas-topbar prototype-hud__top">
-        <div className="atlas-utility-group prototype-hud__designer"><div className="atlas-settings-slot">{renderSlot("settings", "Designer", hudItem("settings"), "utility", "Esc")}</div></div>
+        <div className="atlas-utility-group prototype-hud__designer"><div className="atlas-settings-slot">{renderSlot("settings", "Dashboard", hudItem("settings"), "utility", "Esc")}</div></div>
         <CompassBar player={mapPosition} markers={defaultMapMarkers} />
         <div className="prototype-hud__spirit">{renderSlot("spirit", "Spirit", hudItem("spirit"), "utility", "P")}</div>
       </header>
