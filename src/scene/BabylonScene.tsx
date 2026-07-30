@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { Scene } from "@babylonjs/core/scene";
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
-import { PointLight } from "@babylonjs/core/Lights/pointLight";
+import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
@@ -21,6 +21,8 @@ import type { WorldPositionIdentity } from "../features/character-controller/pos
 import { loadActiveStatefulWorld } from "./statefulWorldRuntime";
 import type { GardenSceneProjectionV1 } from "../api/gateway-contract";
 import { createMythicSun } from "./mythic-sun";
+import { prototypeSunPositionAt } from "./sun-orbit";
+import { voxelHeadingFromForward } from "./compass-heading";
 import { initialBindings } from "../hud/demoData";
 
 const SEA_LEVEL = 0;
@@ -1138,43 +1140,9 @@ function createWorldObjectPass(scene: Scene) {
   return root;
 }
 
-function cubeSphereCompass(camera: UniversalCamera) {
-  const position = camera.position.lengthSquared() > 1 ? camera.position.clone().normalize() : new Vector3(0, 1, 0);
-  const absX = Math.abs(position.x);
-  const absY = Math.abs(position.y);
-  const absZ = Math.abs(position.z);
-  let normal = new Vector3(0, 1, 0);
-  let north = new Vector3(0, 0, 1);
-  let east = new Vector3(1, 0, 0);
-  let face = "+Y";
-
-  if (absX >= absY && absX >= absZ) {
-    const sign = position.x >= 0 ? 1 : -1;
-    normal = new Vector3(sign, 0, 0);
-    north = new Vector3(0, 1, 0);
-    east = new Vector3(0, 0, -sign);
-    face = sign > 0 ? "+X" : "-X";
-  } else if (absZ >= absX && absZ >= absY) {
-    const sign = position.z >= 0 ? 1 : -1;
-    normal = new Vector3(0, 0, sign);
-    north = new Vector3(0, 1, 0);
-    east = new Vector3(sign, 0, 0);
-    face = sign > 0 ? "+Z" : "-Z";
-  } else {
-    const sign = position.y >= 0 ? 1 : -1;
-    normal = new Vector3(0, sign, 0);
-    north = new Vector3(0, 0, sign);
-    east = new Vector3(1, 0, 0);
-    face = sign > 0 ? "+Y" : "-Y";
-  }
-
+function voxelGridCompass(camera: UniversalCamera) {
   const forward = camera.getForwardRay().direction.normalize();
-  let tangentForward = forward.subtract(normal.scale(Vector3.Dot(forward, normal)));
-  if (tangentForward.lengthSquared() < 0.0001) tangentForward = north.clone();
-  tangentForward.normalize();
-  const heading = (Math.atan2(Vector3.Dot(tangentForward, east), Vector3.Dot(tangentForward, north)) * 180) / Math.PI;
-
-  return { face, heading: (heading + 360) % 360 };
+  return { face: "+Y", heading: voxelHeadingFromForward(forward) };
 }
 
 function createStarfield(scene: Scene) {
@@ -1322,16 +1290,15 @@ export function BabylonScene({ projection, worldIdentity, interactive = true }: 
       palette: projection.sun.palette,
     });
     sunAsset.meshes.forEach((mesh) => {
-      mesh.renderingGroupId = 0;
+      mesh.renderingGroupId = 2;
     });
     const projectedSunlight = Color3.FromHexString(projection.sun.sunlight);
 
-    const sunLight = new PointLight("orbiting-sun-point-light", Vector3.Zero(), scene);
+    const sunLight = new DirectionalLight("orbiting-sun-directional-light", new Vector3(-1, -1, 0), scene);
     sunLight.diffuse = projectedSunlight;
     sunLight.specular = new Color3(1, 0.88, 0.66);
-    sunLight.range = 18000;
     sunLight.intensity = 2.4;
-    sunLight.position.copyFrom(sunAsset.root.position);
+    const sunPosition = Vector3.Zero();
 
     let currentTerrain = safeRun("generated terrain mesh", () => createIslandTerrain(scene));
     let terrainSurfaces = currentTerrain?.surfaceMeshes ?? [];
@@ -1609,21 +1576,20 @@ export function BabylonScene({ projection, worldIdentity, interactive = true }: 
       }
 
       const time = sunOrbitRadiansAt(projection.sun);
-      const radius = 12500;
-      const y = Math.sin(time) * 2600 + 6200;
-      const sunPosition = new Vector3(Math.cos(time) * radius, y, Math.sin(time) * radius + 5200);
+      const projectedSunPosition = prototypeSunPositionAt(time, camera.position);
+      sunPosition.set(projectedSunPosition.x, projectedSunPosition.y, projectedSunPosition.z);
       sunAsset.setPosition(sunPosition);
-      sunLight.position.copyFrom(sunPosition);
-      const compass = cubeSphereCompass(camera);
+      sunLight.direction.copyFrom(sunPosition).subtractInPlace(camera.position).normalize().scaleInPlace(-1);
+      const compass = voxelGridCompass(camera);
       window.dispatchEvent(new CustomEvent("knowhere:camera-heading", { detail: compass }));
       window.dispatchEvent(new CustomEvent("knowhere:player-map-position", { detail: { x: camera.position.x, z: camera.position.z, heading: compass.heading } }));
 
-      const daylight = Math.max(0.04, Math.min(1, (y - 800) / 5600));
+      const orbitHeight = Math.sin(time);
+      const daylight = Math.max(0, Math.min(1, orbitHeight * 2.3 + 0.18));
       const lowLightWire = Math.pow(1 - daylight, 1.85);
       ambient.intensity = 0.74 + daylight * 0.46;
       ambient.diffuse = new Color3(0.54 + daylight * 0.2, 0.62 + daylight * 0.2, 0.62 + daylight * 0.16);
       sunLight.intensity = 0.12 + daylight * (projection.sun.maxIntensity - 0.12);
-      sunLight.range = 26000;
       const sunToCamera = sunPosition.subtract(camera.position);
       const sunDistance = sunToCamera.length();
       const sunRay = new Ray(camera.position, sunToCamera.normalize(), sunDistance);

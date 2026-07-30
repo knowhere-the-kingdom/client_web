@@ -1,6 +1,7 @@
 import type { AbilitySlot, CharacterActionSignal, CharacterControllerState, CharacterMovementModifiers, EntityRuntimeContract, EntityRuntimeSnapshotInput, MovementDirection, CharacterActionId, CharacterBindings, CharacterControllerFrame, CharacterControllerTimers, CharacterGamepadSettings, CharacterRenderEvent, SkillRuntimeContract } from "./types";
 import { createMovementActionsReadModel } from "./movementActions";
 import { applyGamepadDeadzone, gamepadDirectionalAxisValue, normalizedGamepadBinding, standardGamepadButtonIndex } from "./gamepadInput";
+import { normalizeActionKey } from "./actionBindings";
 
 const DOUBLE_TAP_MS = 280;
 const DODGE_DURATION_MS = 320;
@@ -81,12 +82,6 @@ function initialState(): CharacterControllerState {
   };
 }
 
-function normalizedKey(value: string) {
-  if (value === "Space") return " ";
-  if (value === "Ctrl") return "control";
-  return value.toLowerCase();
-}
-
 function isEditableTarget(target: EventTarget | null) {
   const element = target as HTMLElement | null;
   return element?.tagName === "INPUT" || element?.tagName === "TEXTAREA" || element?.tagName === "SELECT" || element?.isContentEditable === true;
@@ -96,6 +91,7 @@ export class CharacterController {
   private state = initialState();
   private readonly listeners = new Set<() => void>();
   private readonly eventListeners = new Set<(event: CharacterRenderEvent) => void>();
+  private readonly actionSignalListeners = new Set<(signal: CharacterActionSignal) => void>();
   private readonly held = new Set<CharacterActionId>();
   private readonly semanticHeld = new Set<CharacterActionId>();
   private readonly gamepadHeld = new Set<CharacterActionId>();
@@ -136,6 +132,11 @@ export class CharacterController {
     return () => { this.eventListeners.delete(listener); };
   };
 
+  subscribeActionSignals = (listener: (signal: CharacterActionSignal) => void) => {
+    this.actionSignalListeners.add(listener);
+    return () => { this.actionSignalListeners.delete(listener); };
+  };
+
   configureSkills(skills: readonly SkillRuntimeContract[]) {
     this.skills.clear();
     this.skillsBySlot.clear();
@@ -166,7 +167,7 @@ export class CharacterController {
           continue;
         }
         if (value === "Unbound" || value === "Hardcoded" || value.startsWith("Double-tap") || value.startsWith("Mouse")) continue;
-        this.keyActions.set(normalizedKey(value), action);
+        this.keyActions.set(normalizeActionKey(value), action);
       }
       if (!binding.gamepad || binding.gamepad === "Unbound") return;
       const gamepadBinding = normalizedGamepadBinding(binding.gamepad);
@@ -199,6 +200,7 @@ export class CharacterController {
 
   handleActionSignal(signal: CharacterActionSignal) {
     if (this.state.flags.inputLocked) return;
+    this.emitActionSignal(signal);
     if (signal.phase === "pressed") {
       if (this.semanticHeld.has(signal.actionId)) return;
       this.semanticHeld.add(signal.actionId);
@@ -270,10 +272,11 @@ export class CharacterController {
 
   handleKeyDown(event: KeyboardEvent) {
     if (event.repeat || isEditableTarget(event.target)) return;
-    const action = this.keyActions.get(normalizedKey(event.key));
+    const action = this.keyActions.get(normalizeActionKey(event.key));
     if (!action || this.state.flags.inputLocked) return;
     event.preventDefault();
     this.held.add(action);
+    this.emitActionSignal({ actionId: action, phase: "pressed" });
     this.pressAction(action, performance.now());
     this.updateMovementMode();
   }
@@ -304,11 +307,16 @@ export class CharacterController {
   }
 
   handleKeyUp(event: KeyboardEvent) {
-    const action = this.keyActions.get(normalizedKey(event.key));
+    const action = this.keyActions.get(normalizeActionKey(event.key));
     if (!action) return;
     this.held.delete(action);
+    this.emitActionSignal({ actionId: action, phase: "released" });
     this.releaseAction(action);
     this.updateMovementMode();
+  }
+
+  private emitActionSignal(signal: CharacterActionSignal) {
+    this.actionSignalListeners.forEach((listener) => listener(signal));
   }
 
   releaseAllInputs() {

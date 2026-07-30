@@ -10,6 +10,7 @@ import { SettingsPanel } from "./SettingsPanel";
 import type { CanvasItem, CanvasItemLocation, DemoSkill, HudLogEntry, HudMapMarker, HudMapPosition, SettingsBinding } from "./types";
 import type { WorldHudProjectionV2 } from "../api/gateway-contract";
 import { AWARENESS_ITEM } from "../inventory/inventory-model";
+import { CROSSHAIR_SETTINGS_EVENT, defaultCrosshairSettings, readCrosshairSettings, type CrosshairSettings, type CrosshairSettingsEventDetail } from "./crosshairSettings";
 
 type OpenPanel = "login" | "account" | "equipment" | "tome" | "settings";
 type CrosshairState = "default" | "targetable" | "interact" | "blocked" | "place" | "place-valid" | "destructive";
@@ -149,8 +150,10 @@ function CompassBar({ player, markers, onCollapse }: { player: HudMapPosition; m
     return () => window.removeEventListener("knowhere:camera-heading", updateHeading);
   }, []);
 
-  const centerIndex = Math.round(heading / 45) % directions.length;
-  const tape = Array.from({ length: 7 }, (_, index) => directions[(centerIndex + index - 3 + directions.length) % directions.length]);
+  const tape = Array.from({ length: 25 }, (_, index) => {
+    const bearing = (index - 8) * 45;
+    return { bearing, direction: directions[((index - 8) % directions.length + directions.length) % directions.length] };
+  });
   const compassMarkers = markers
     .filter((marker) => marker.discovered)
     .map((marker) => {
@@ -168,8 +171,10 @@ function CompassBar({ player, markers, onCollapse }: { player: HudMapPosition; m
   const markerIcon = (kind: HudMapMarker["kind"]) => kind === "objective" ? "target" : kind === "keep" ? "castle" : kind === "gate" ? "keyhole" : "person";
 
   return (
-    <button type="button" className="atlas-compass" aria-label="Collapse compass to its item slot" onClick={onCollapse}>
-      <div className="atlas-compass-tape">{tape.map((direction, index) => <span key={`${direction}-${index}`} className={index === 3 ? "is-center" : ""}>{direction}</span>)}</div>
+    <button type="button" className="atlas-compass" aria-label={`Compass heading ${Math.round(heading)} degrees. Collapse compass to its item slot.`} onClick={onCollapse}>
+      <div className="atlas-compass-tape" aria-hidden="true">{tape.map(({ bearing, direction }) => (
+        <span key={bearing} className={direction.length === 1 ? "is-cardinal" : ""} style={{ left: `${50 + ((bearing - heading) / 315) * 100}%` }}>{direction}</span>
+      ))}</div>
       <div className="atlas-compass-rule">
         <i className="atlas-compass-heading" />
         {compassMarkers.map(({ marker, delta, distance }) => (
@@ -250,15 +255,27 @@ function promptIcon(promptKind: CharacterBlockFaceTargetPromptKind) {
   return "target";
 }
 
-function Crosshair({ presentation }: { presentation: CrosshairPresentation }) {
-  const style = presentation.rarityThemeToken ? ({ "--atlas-target-rarity": `var(${presentation.rarityThemeToken})` } as CSSProperties) : undefined;
+function Crosshair({ presentation, settings }: { presentation: CrosshairPresentation; settings: CrosshairSettings }) {
+  const style = ({
+    ...(presentation.rarityThemeToken ? { "--atlas-target-rarity": `var(${presentation.rarityThemeToken})` } : {}),
+    "--atlas-crosshair-size": `${settings.size}px`,
+    "--atlas-crosshair-line-width": `${settings.lineWidth}px`,
+    "--atlas-crosshair-gap": `${settings.gap}px`,
+    "--atlas-crosshair-color": settings.color,
+    "--atlas-crosshair-opacity": settings.opacity / 100,
+    "--atlas-crosshair-outline-color": settings.outlineColor,
+    "--atlas-crosshair-outline-width": `${settings.outline ? settings.outlineWidth : 0}px`,
+    "--atlas-crosshair-outline-opacity": settings.outlineOpacity / 100,
+    "--atlas-crosshair-dot-size": `${settings.centerDotSize}px`,
+    "--atlas-crosshair-dot-color": settings.centerDotColor,
+  } as CSSProperties);
   const state = presentation.state;
   const prompt = presentation.prompt;
   const promptKind = presentation.promptKind;
   const statusText = prompt ? `${prompt}${presentation.validity ? `. ${presentation.validity}` : ""}` : "No block target";
   return (
     <div
-      className={`atlas-crosshair atlas-crosshair-${state} atlas-crosshair-source-${targetClassPart(presentation.source, "crosshair")} atlas-crosshair-stability-${targetClassPart(presentation.stability, "unknown")} atlas-crosshair-validity-${targetClassPart(presentation.validity, "unknown")} atlas-crosshair-direction-${targetClassPart(presentation.targetDirection, "selected")}`}
+      className={`atlas-crosshair reticle-preset-${settings.preset} atlas-crosshair-${state} atlas-crosshair-source-${targetClassPart(presentation.source, "crosshair")} atlas-crosshair-stability-${targetClassPart(presentation.stability, "unknown")} atlas-crosshair-validity-${targetClassPart(presentation.validity, "unknown")} atlas-crosshair-direction-${targetClassPart(presentation.targetDirection, "selected")}${settings.enabled ? "" : " is-reticle-disabled"}${settings.outline ? " has-reticle-outline" : ""}`}
       style={style}
       role="status"
       aria-live="polite"
@@ -266,7 +283,7 @@ function Crosshair({ presentation }: { presentation: CrosshairPresentation }) {
       aria-label={statusText}
       data-target-revision={presentation.revision}
     >
-      <span className="atlas-crosshair-reticle" aria-hidden="true"><i /><i /><i /><i /></span>
+      <span className="atlas-crosshair-reticle" aria-hidden="true"><i className="reticle-part-top" /><i className="reticle-part-right" /><i className="reticle-part-bottom" /><i className="reticle-part-left" />{settings.centerDot ? <b /> : null}<em /><s /></span>
       <span className={`atlas-crosshair-prompt ${prompt ? "" : "is-empty"}`.trim()} aria-hidden={prompt ? undefined : true}>
         <AtlasIcon name={promptIcon(promptKind)} size={0.8} />
         <span>{prompt ?? "No target"}</span>
@@ -359,9 +376,8 @@ function AccountPanel({ loggedIn, onSignOut, onClose }: { loggedIn: "User" | "Ad
 function BagGrid({ bag, items, draggedItemId, onDragStart, onDragEnd, onDropGrid, onClick, onContextMenu }: { bag: CanvasItem; items: CanvasItem[]; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onDropGrid: (event: DragEvent<HTMLDivElement>, x: number, y: number) => void; onClick: (item: CanvasItem) => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slotKind: string) => void }) {
   const cols = bag.grid?.cols ?? 6;
   const rows = bag.grid?.rows ?? 4;
-  const unit = bag.id === "stashVault" ? 2 : 4;
   return (
-    <div className="atlas-bag-grid" data-bag-id={bag.id} style={{ width: `${cols * unit}rem`, height: `${rows * unit}rem`, gridTemplateColumns: `repeat(${cols}, ${unit}rem)`, gridTemplateRows: `repeat(${rows}, ${unit}rem)` }}>
+    <div className="atlas-bag-grid prototype-inventory-grid" data-bag-id={bag.id} style={{ "--bag-columns": cols, "--bag-rows": rows } as CSSProperties}>
       {Array.from({ length: cols * rows }).map((_, index) => {
         const x = index % cols;
         const y = Math.floor(index / cols);
@@ -374,7 +390,7 @@ function BagGrid({ bag, items, draggedItemId, onDragStart, onDragEnd, onDropGrid
             key={item.id}
             type="button"
             className={`atlas-grid-item ${draggedItemId === item.id ? "is-dragging" : ""}`}
-            style={{ left: `${item.loc.x * unit}rem`, top: `${item.loc.y * unit}rem`, width: `${item.w * unit}rem`, height: `${item.h * unit}rem` }}
+            style={{ "--item-x": item.loc.x, "--item-y": item.loc.y, "--item-columns": item.w, "--item-rows": item.h } as CSSProperties}
             draggable
             onDragStart={() => onDragStart(item)}
             onDragEnd={onDragEnd}
@@ -393,26 +409,30 @@ function BagGrid({ bag, items, draggedItemId, onDragStart, onDragEnd, onDropGrid
 function StashPanel({ bag, items, capacity, draggedItemId, onDragStart, onDragEnd, onDropGrid, onClick, onContextMenu, onClose }: { bag: CanvasItem; items: CanvasItem[]; capacity: number; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onDropGrid: (event: DragEvent<HTMLDivElement>, x: number, y: number) => void; onClick: (item: CanvasItem) => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slotKind: string) => void; onClose: () => void }) {
   const spiritBox = bag.id === "spiritBox1";
   const canonicalStash = bag.id === "stashVault";
+  const inventoryKind = canonicalStash ? "stash" : bag.id === "lunchbox1" ? "lunchbox" : "backpack";
+  const columns = bag.grid?.cols ?? 6;
+  const rows = bag.grid?.rows ?? 4;
+  const title = canonicalStash ? "Stash" : bag.name;
   return (
-    <section className={`atlas-panel atlas-inventory-panel atlas-stash-panel prototype-floating-panel${spiritBox ? " prototype-spirit-panel" : ""}${canonicalStash ? " prototype-stash-panel--canonical" : ""}`} role="dialog" aria-modal="false" aria-label={spiritBox ? "Spirit of Life" : canonicalStash ? "Stash" : `${bag.name} stash`}>
+    <section className={`atlas-panel atlas-inventory-panel atlas-stash-panel prototype-floating-panel${spiritBox ? " prototype-spirit-panel" : ` prototype-inventory-window prototype-inventory-window--${inventoryKind}`}`} role="dialog" aria-modal="false" aria-label={spiritBox ? "Spirit of Life" : title}>
         <header className="atlas-panel-header atlas-stash-header">
-          <div>{canonicalStash ? null : <span className="atlas-eyebrow">{spiritBox ? "Characters" : "Personal inventory"}</span>}<h2>{spiritBox ? "Spirit of Life" : "Stash"}</h2>{canonicalStash ? null : <small>{spiritBox ? "Choose the character bound to this Spirit." : `${bag.name} · drag items to arrange them`}</small>}</div>
+          <div>{spiritBox ? <span className="atlas-eyebrow">Characters</span> : null}<h2>{spiritBox ? "Spirit of Life" : title}{spiritBox ? null : <small>{columns}×{rows}</small>}</h2>{spiritBox ? <small>Choose the character bound to this Spirit.</small> : null}</div>
           <button type="button" className="atlas-close" onClick={onClose} aria-label="Close stash"><AtlasIcon name="x" size={1.1} /></button>
         </header>
-        {!spiritBox && !canonicalStash ? <nav className="atlas-stash-tabs" aria-label="Stash locations">
+        {!spiritBox && canonicalStash ? <nav className="atlas-stash-tabs prototype-inventory-tabs" aria-label="Stash locations">
           <button type="button" className="is-active" aria-current="page">Personal</button>
           <button type="button" disabled>Shared I</button>
           <button type="button" disabled>Shared II</button>
           <button type="button" disabled>Shared III</button>
         </nav> : null}
-        {!canonicalStash ? <div className="atlas-inventory-toolbar">
-          <div><strong>{spiritBox ? `${items.length} characters available` : `${items.length} items secured`}</strong><span>{spiritBox ? "Select a character to inspect their field loadout." : "Drag to move · right-click for actions · nested bags retain their contents"}</span></div>
-          <span>{spiritBox ? "Spirit linked" : `${capacity} / 20 capacity`}</span>
+        {spiritBox ? <div className="atlas-inventory-toolbar">
+          <div><strong>{`${items.length} characters available`}</strong><span>Select a character to inspect their field loadout.</span></div>
+          <span>Spirit linked</span>
         </div> : null}
         <div className="atlas-bag-grid-wrap atlas-stash-grid-wrap">
           <BagGrid bag={{ ...bag, grid: bag.grid ?? { cols: 6, rows: 4 } }} items={items} draggedItemId={draggedItemId} onDragStart={onDragStart} onDragEnd={onDragEnd} onDropGrid={onDropGrid} onClick={onClick} onContextMenu={onContextMenu} />
         </div>
-        {canonicalStash ? null : <footer className="atlas-stash-footer"><span><AtlasIcon name={spiritBox ? "spirit" : "backpack"} size={0.8} /> {spiritBox ? "Spirit of Life" : "Personal vault"}</span><small>Esc closes · gold cells show the active container footprint</small></footer>}
+        {spiritBox ? <footer className="atlas-stash-footer"><span><AtlasIcon name="spirit" size={0.8} /> Spirit of Life</span><small>Esc closes</small></footer> : null}
     </section>
   );
 }
@@ -482,9 +502,9 @@ function locationsOverlap(a: { x: number; y: number; w: number; h: number }, b: 
   return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
 }
 
-export type KnowhereHudProps = Readonly<{ accountLabel: string; projection?: WorldHudProjectionV2 | null; poweringDown?: boolean; onInventoryMove?: (itemInstanceId:string,destination:CanvasItemLocation,expectedRevision:number)=>Promise<WorldHudProjectionV2|null>; onOpenDashboard: () => void; onLogout: () => void }>;
+export type KnowhereHudProps = Readonly<{ accountLabel: string; settingsOwnerId: string; projection?: WorldHudProjectionV2 | null; poweringDown?: boolean; onInventoryMove?: (itemInstanceId:string,destination:CanvasItemLocation,expectedRevision:number)=>Promise<WorldHudProjectionV2|null>; onOpenDashboard: () => void; onLogout: () => void }>;
 
-export function KnowhereHud({ accountLabel, projection = null, poweringDown = false, onInventoryMove, onOpenDashboard, onLogout }: KnowhereHudProps) {
+export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, poweringDown = false, onInventoryMove, onOpenDashboard, onLogout }: KnowhereHudProps) {
   const [items, setItems] = useState<Record<string, CanvasItem>>(() => ({
     ...initialCanvasItems,
     kingdom: { ...initialCanvasItems.kingdom, loc: { kind: "limbo" } },
@@ -515,10 +535,21 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const [contextMenu, setContextMenu] = useState<ItemContext | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const [crosshairPresentation, setCrosshairPresentation] = useState<CrosshairPresentation>(defaultCrosshairPresentation);
+  const [crosshairSettings, setCrosshairSettings] = useState<CrosshairSettings>(() => typeof window === "undefined" ? defaultCrosshairSettings : readCrosshairSettings(window.localStorage, settingsOwnerId));
   const [mapPosition, setMapPosition] = useState<HudMapPosition>(defaultMapPosition);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
   const chatInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setCrosshairSettings(readCrosshairSettings(window.localStorage, settingsOwnerId));
+    const handleCrosshairSettings = (event: Event) => {
+      const detail = (event as CustomEvent<CrosshairSettingsEventDetail>).detail;
+      if (detail?.ownerId === settingsOwnerId) setCrosshairSettings(detail.settings);
+    };
+    window.addEventListener(CROSSHAIR_SETTINGS_EVENT, handleCrosshairSettings);
+    return () => window.removeEventListener(CROSSHAIR_SETTINGS_EVENT, handleCrosshairSettings);
+  }, [settingsOwnerId]);
 
   const allItems = useMemo(() => Object.values(items), [items]);
   const hudItem = (slot: string) => allItems.find((item) => item.loc.kind === "hud" && item.loc.slot === slot);
@@ -760,6 +791,24 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     const normalized = key.length === 1 ? key.toUpperCase() : key;
     return [binding?.primary, binding?.secondary].some((value) => value === normalized);
   };
+  const bindingLabel = (id: string) => {
+    const binding = bindings.find((candidate) => candidate.id === id);
+    return binding?.primary && binding.primary !== "Unbound" ? binding.primary : binding?.secondary && binding.secondary !== "Unbound" ? binding.secondary : undefined;
+  };
+
+  useEffect(() => characterController.subscribeActionSignals((signal) => {
+    if (signal.phase !== "pressed") return;
+    if (signal.actionId === "backpack" && backpack) {
+      setOpenPanel(null);
+      setOpenBagId((current) => current === backpack.id ? null : backpack.id);
+    } else if (signal.actionId === "stash") {
+      setOpenPanel(null);
+      setOpenBagId((current) => current === "stashVault" ? null : "stashVault");
+    } else if (signal.actionId === "lunchbox" && lunchbox) {
+      setOpenPanel(null);
+      setOpenBagId((current) => current === lunchbox.id ? null : lunchbox.id);
+    }
+  }), [backpack?.id, lunchbox?.id]);
 
   const rotateActionSelection = (side: "left" | "right", direction: -1 | 1) => {
     const update = side === "left" ? setLeftSelections : setRightSelections;
@@ -833,24 +882,6 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
           else chatInputRef.current?.blur();
           return next;
         });
-        return;
-      }
-      if (bindingUsesKey("backpack", event.key) && backpack) {
-        event.preventDefault();
-        setOpenPanel(null);
-        setOpenBagId((current) => current === backpack.id ? null : backpack.id);
-        return;
-      }
-      if (bindingUsesKey("stash", event.key)) {
-        event.preventDefault();
-        setOpenPanel(null);
-        setOpenBagId((current) => current === "stashVault" ? null : "stashVault");
-        return;
-      }
-      if (event.key.toLowerCase() === "l" && lunchbox) {
-        event.preventDefault();
-        setOpenPanel(null);
-        setOpenBagId((current) => current === lunchbox.id ? null : lunchbox.id);
         return;
       }
       if (event.key.toLowerCase() === "c") { event.preventDefault(); setPanel("equipment"); return; }
@@ -1085,8 +1116,8 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
       </header>
 
       <aside className="prototype-hud__backpack" aria-label="Backpack loadout">
-        {renderSlot("backpack", "Backpack", backpack, "utility", "B")}
-        {renderSlot("lunchbox", "Lunchbox", lunchbox, "utility", "L")}
+        {renderSlot("backpack", "Backpack", backpack, "utility", bindingLabel("backpack"))}
+        {renderSlot("lunchbox", "Lunchbox", lunchbox, "utility", bindingLabel("lunchbox"))}
       </aside>
 
       <section className="prototype-hud__character-loadout" aria-label="Lunchbox, agility, and map">
@@ -1103,7 +1134,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         {renderSlot("tome", "Knowledge", tome, "utility", "U")}
       </section>
 
-      <main className="atlas-center-stage"><Crosshair presentation={crosshairPresentation} /><EventLog channel="player" align="left" logs={logs} /><EventLog channel="spirit" align="right" logs={logs} /></main>
+      <main className="atlas-center-stage"><Crosshair presentation={crosshairPresentation} settings={crosshairSettings} /><EventLog channel="player" align="left" logs={logs} /><EventLog channel="spirit" align="right" logs={logs} /></main>
 
       {chatOpen ? <section className="atlas-chat-stack" aria-label="Chat">
         <EventLog channel="system" align="center" logs={logs} />
@@ -1114,24 +1145,23 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         </form>
       </section> : null}
 
-      <section className="prototype-hud__creature" aria-label="Character slot">
-        {renderSlot("character", "Character", activeCharacter, "utility", "C")}
-        <span className="prototype-hud__loadout-index">Loadout {activeLoadout + 1}/3 · X</span>
-      </section>
-
       <nav className="atlas-actionbar prototype-hud__actionbar" aria-label="Action slots">
         <div className="prototype-hud__action-side prototype-hud__action-side--left">
           <div className="prototype-hud__action-vital prototype-hud__action-vital--health"><MeterRail kind="health" current={controllerState.health.current} max={controllerState.health.maximum} /></div>
           <div className="prototype-hud__action-grid" aria-label="Odd action slots">
-            {oddActionIndices.map((index) => renderSlot(actionSlotName(activeLoadout, index), `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
+            {oddActionIndices.filter((index) => index !== selectedLeftIndex).map((index) => renderSlot(actionSlotName(activeLoadout, index), `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
           </div>
           <AtlasItemSlot item={selectedLeftItem} label="Left Click" size="action" hotkey="LMB" selected className="prototype-hud__hand-action" onClick={() => activateHandAction("left")} />
         </div>
+        <section className="prototype-hud__creature" aria-label="Character slot">
+          {renderSlot("character", "Character", activeCharacter, "utility", "C")}
+          <span className="prototype-hud__loadout-index">Loadout {activeLoadout + 1}/3 · X</span>
+        </section>
         <div className="prototype-hud__action-side prototype-hud__action-side--right">
           <div className="prototype-hud__action-vital prototype-hud__action-vital--spirit"><MeterRail kind="spirit" current={controllerState.resources.spirit.current} max={controllerState.resources.spirit.maximum} /></div>
           <AtlasItemSlot item={selectedRightItem} label="Right Click" size="action" hotkey="RMB" selected className="prototype-hud__hand-action" onClick={() => activateHandAction("right")} />
           <div className="prototype-hud__action-grid" aria-label="Even action slots">
-            {evenActionIndices.map((index) => renderSlot(actionSlotName(activeLoadout, index), `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
+            {evenActionIndices.filter((index) => index !== selectedRightIndex).map((index) => renderSlot(actionSlotName(activeLoadout, index), `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
           </div>
         </div>
       </nav>

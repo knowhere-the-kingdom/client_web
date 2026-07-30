@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { initialBindings, saveControlBindings } from "../hud/demoData";
 import type { SettingsBinding } from "../hud/types";
 import { publishStoredCharacterInputSettings } from "../features/character-controller/runtimeSettings";
+import { publishStoredCrosshairSettings } from "../hud/crosshairSettings";
 
 export type SettingsDashboardPage =
   | "profile"
@@ -37,11 +38,19 @@ type DashboardPreferenceDocument = {
   };
   gameplay: {
     crosshairEnabled: boolean;
+    crosshairPreset: "cross" | "dot" | "circle" | "chevron";
     crosshairSize: number;
+    crosshairLineWidth: number;
+    crosshairGap: number;
     crosshairOpacity: number;
     crosshairColor: string;
     crosshairOutline: boolean;
+    crosshairOutlineColor: string;
+    crosshairOutlineWidth: number;
+    crosshairOutlineOpacity: number;
     centerDot: boolean;
+    crosshairCenterDotSize: number;
+    crosshairCenterDotColor: string;
     lootLabels: boolean;
     lootMinimumQuality: string;
     lootDistance: boolean;
@@ -92,7 +101,7 @@ function defaults(displayName: string): DashboardPreferenceDocument {
     version: 1,
     profile: { displayName, title: "Wanderer", pronouns: "", about: "Exploring the Kingdom of Knowhere.", status: "Available", visibility: "public" },
     account: { email: "", locale: "English (US)", timezone: "Local device time", announcements: true, securityAlerts: true },
-    gameplay: { crosshairEnabled: true, crosshairSize: 42, crosshairOpacity: 88, crosshairColor: "#70b9b2", crosshairOutline: true, centerDot: true, lootLabels: true, lootMinimumQuality: "Common", lootDistance: true, lootMaxDistance: 24 },
+    gameplay: { crosshairEnabled: true, crosshairPreset: "cross", crosshairSize: 42, crosshairLineWidth: 2, crosshairGap: 6, crosshairOpacity: 88, crosshairColor: "#70b9b2", crosshairOutline: true, crosshairOutlineColor: "#000000", crosshairOutlineWidth: 1, crosshairOutlineOpacity: 80, centerDot: true, crosshairCenterDotSize: 4, crosshairCenterDotColor: "#70b9b2", lootLabels: true, lootMinimumQuality: "Common", lootDistance: true, lootMaxDistance: 24 },
     controls: { bindings: initialBindings.map((binding) => ({ ...binding })), mouseX: 50, mouseY: 44, invertMouseY: false, gamepadEnabled: true, invertGamepadY: false, deadzone: 12, vibration: 60 },
     display: { windowMode: "Borderless", resolution: "Native", quality: "High", renderDistance: 70, hudScale: 100, shadows: true, bloom: true, motionBlur: false },
     audio: { master: 80, voice: 72, music: 55, effects: 75, ambience: 68, muteUnfocused: false, output: "System default" },
@@ -158,6 +167,7 @@ export function DashboardSettingsPage({
     window.localStorage.setItem(storageKey(user.id), JSON.stringify(next));
     saveControlBindings(next.controls.bindings);
     publishStoredCharacterInputSettings(user.id);
+    publishStoredCrosshairSettings(user.id);
     setPreferences(next);
     setSaved(next.updatedAt);
   };
@@ -166,6 +176,7 @@ export function DashboardSettingsPage({
     window.localStorage.setItem(storageKey(user.id), JSON.stringify(next));
     saveControlBindings(next.controls.bindings);
     publishStoredCharacterInputSettings(user.id);
+    publishStoredCrosshairSettings(user.id);
     setPreferences(next);
     setSaved(null);
   };
@@ -215,7 +226,7 @@ function GameplayPage({ value, onChange, onSave, onReset, saved }: Readonly<{ va
       <button type="button" className={tab === "crosshair" ? "active" : ""} onClick={() => setTab("crosshair")}>Crosshair</button>
       <button type="button" className={tab === "loot" ? "active" : ""} onClick={() => setTab("loot")}>Loot Options</button>
     </nav>
-    {tab === "crosshair" ? <div className="dashboard-preview-layout"><Panel title="Crosshair Settings" description="Drives the live reticle and shared target Inspector where a world target consumer is available."><Toggle label="Show crosshair" description="Display the world targeting reticle." checked={value.crosshairEnabled} onChange={(crosshairEnabled) => onChange({ ...value, crosshairEnabled })} /><Slider label="Reticle size" value={value.crosshairSize} min={16} max={80} suffix="px" onChange={(crosshairSize) => onChange({ ...value, crosshairSize })} /><Slider label="Opacity" value={value.crosshairOpacity} onChange={(crosshairOpacity) => onChange({ ...value, crosshairOpacity })} /><Field label="Reticle color"><input type="color" value={value.crosshairColor} onChange={(event) => onChange({ ...value, crosshairColor: event.target.value })} /></Field><Toggle label="Show outline" description="Add a high-contrast reticle outline." checked={value.crosshairOutline} onChange={(crosshairOutline) => onChange({ ...value, crosshairOutline })} /><Toggle label="Show center dot" description="Place a dot at the exact target point." checked={value.centerDot} onChange={(centerDot) => onChange({ ...value, centerDot })} /></Panel><figure className="dashboard-live-preview"><figcaption>Live settings preview</figcaption><div className="dashboard-crosshair-preview" style={{ "--preview-crosshair-size": `${value.crosshairSize}px`, "--preview-crosshair-color": value.crosshairColor, opacity: value.crosshairEnabled ? value.crosshairOpacity / 100 : 0 } as CSSProperties}><i className={value.crosshairOutline ? "outlined" : ""} />{value.centerDot ? <b /> : null}</div></figure></div> : null}
+    {tab === "crosshair" ? <div className="dashboard-preview-layout"><Panel title="Crosshair Settings" description="The saved profile drives this preview and the live world reticle."><Toggle label="Show crosshair" description="Display the world targeting reticle." checked={value.crosshairEnabled} onChange={(crosshairEnabled) => onChange({ ...value, crosshairEnabled })} /><Field label="Reticle preset"><select value={value.crosshairPreset} onChange={(event) => onChange({ ...value, crosshairPreset: event.target.value as typeof value.crosshairPreset })}><option value="cross">Cross</option><option value="dot">Dot</option><option value="circle">Circle</option><option value="chevron">Chevron</option></select></Field><Field label="Reticle color"><input type="color" value={value.crosshairColor} onChange={(event) => onChange({ ...value, crosshairColor: event.target.value })} /></Field><Slider label="Overall size" value={value.crosshairSize} min={16} max={80} suffix="px" onChange={(crosshairSize) => onChange({ ...value, crosshairSize })} /><Slider label="Line thickness" value={value.crosshairLineWidth} min={1} max={12} suffix="px" onChange={(crosshairLineWidth) => onChange({ ...value, crosshairLineWidth })} /><Slider label="Center gap" value={value.crosshairGap} min={0} max={32} suffix="px" onChange={(crosshairGap) => onChange({ ...value, crosshairGap })} /><Slider label="Reticle opacity" value={value.crosshairOpacity} onChange={(crosshairOpacity) => onChange({ ...value, crosshairOpacity })} /><Toggle label="Show outline" description="Add a high-contrast reticle outline." checked={value.crosshairOutline} onChange={(crosshairOutline) => onChange({ ...value, crosshairOutline })} />{value.crosshairOutline ? <><Field label="Outline color"><input type="color" value={value.crosshairOutlineColor} onChange={(event) => onChange({ ...value, crosshairOutlineColor: event.target.value })} /></Field><Slider label="Outline width" value={value.crosshairOutlineWidth} min={0} max={6} suffix="px" onChange={(crosshairOutlineWidth) => onChange({ ...value, crosshairOutlineWidth })} /><Slider label="Outline opacity" value={value.crosshairOutlineOpacity} onChange={(crosshairOutlineOpacity) => onChange({ ...value, crosshairOutlineOpacity })} /></> : null}<Toggle label="Show center dot" description="Place a dot at the exact target point." checked={value.centerDot} onChange={(centerDot) => onChange({ ...value, centerDot })} />{value.centerDot ? <><Slider label="Center-dot size" value={value.crosshairCenterDotSize} min={1} max={16} suffix="px" onChange={(crosshairCenterDotSize) => onChange({ ...value, crosshairCenterDotSize })} /><Field label="Center-dot color"><input type="color" value={value.crosshairCenterDotColor} onChange={(event) => onChange({ ...value, crosshairCenterDotColor: event.target.value })} /></Field></> : null}</Panel><figure className="dashboard-live-preview"><figcaption>Live settings preview</figcaption><div className={`dashboard-crosshair-preview reticle-preset-${value.crosshairPreset}${value.crosshairOutline ? " has-reticle-outline" : ""}`} style={{ "--atlas-crosshair-size": `${value.crosshairSize}px`, "--atlas-crosshair-line-width": `${value.crosshairLineWidth}px`, "--atlas-crosshair-gap": `${value.crosshairGap}px`, "--atlas-crosshair-color": value.crosshairColor, "--atlas-crosshair-opacity": value.crosshairEnabled ? value.crosshairOpacity / 100 : 0, "--atlas-crosshair-outline-color": value.crosshairOutlineColor, "--atlas-crosshair-outline-width": `${value.crosshairOutline ? value.crosshairOutlineWidth : 0}px`, "--atlas-crosshair-outline-opacity": value.crosshairOutlineOpacity / 100, "--atlas-crosshair-dot-size": `${value.crosshairCenterDotSize}px`, "--atlas-crosshair-dot-color": value.crosshairCenterDotColor } as CSSProperties}><span className="atlas-crosshair-reticle"><i className="reticle-part-top" /><i className="reticle-part-right" /><i className="reticle-part-bottom" /><i className="reticle-part-left" />{value.centerDot ? <b /> : null}<em /><s /></span></div></figure></div> : null}
     {tab === "loot" ? <div className="dashboard-preview-layout"><Panel title="Loot Options" description="Preview label preferences. In-world application awaits a loot-label renderer consumer."><Toggle label="Show loot labels" description="Display labels for nearby dropped items." checked={value.lootLabels} onChange={(lootLabels) => onChange({ ...value, lootLabels })} /><Field label="Minimum quality"><select value={value.lootMinimumQuality} onChange={(event) => onChange({ ...value, lootMinimumQuality: event.target.value })}><option>Common</option><option>Uncommon</option><option>Rare</option><option>Epic</option><option>Cosmic</option></select></Field><Toggle label="Show distance" description="Include distance in each visible label." checked={value.lootDistance} onChange={(lootDistance) => onChange({ ...value, lootDistance })} /><Slider label="Maximum label distance" value={value.lootMaxDistance} min={4} max={64} suffix="m" onChange={(lootMaxDistance) => onChange({ ...value, lootMaxDistance })} /></Panel><figure className="dashboard-live-preview"><figcaption>Live settings preview</figcaption><div className="dashboard-loot-preview">{value.lootLabels ? <span><b>Awareness</b><small>{value.lootMinimumQuality}{value.lootDistance ? ` · ${Math.min(12, value.lootMaxDistance)}m` : ""}</small></span> : <em>Loot labels disabled</em>}</div></figure></div> : null}
   </PageShell>;
 }

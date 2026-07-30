@@ -16,6 +16,9 @@ export type CharacterActionId =
   | "tome-action-2"
   | "left-hand"
   | "right-hand"
+  | "stash"
+  | "backpack"
+  | "lunchbox"
   | `actionbar-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}`;
 
 export type MovementDirection = "forward" | "back" | "left" | "right";
