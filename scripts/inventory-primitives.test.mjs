@@ -136,18 +136,18 @@ test("cancel clears the complete local held-item state", () => {
   assert.deepEqual(cancelInventoryMovement(), { heldInstanceId: null });
 });
 
-test("the restored key gate uses the inventory primitives without the obsolete dotted scaffold", async () => {
-  const login = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+test("the mounted System key gate uses inventory primitives without the obsolete dotted scaffold", async () => {
+  const app = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const login = await readFile(new URL("../src/system-theme/SystemThemeExperience.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   const inventoryStyles = await readFile(new URL("../src/inventory/inventory-primitives.css", import.meta.url), "utf8");
+  assert.match(app, /<SystemThemeExperience gateway=\{gateway\}/);
   assert.match(login, /InventoryItem/);
   assert.match(login, /InventorySlot/);
-  assert.match(login, /held \? <div className="inventory-login-designer__slot is-revealed"/);
-  assert.match(login, /placeNearSlot/);
-  assert.match(login, /inventory-cursor-item/);
-  assert.match(login, /<SeatedAwareness disabled={poweringDown} onRemove={logout} \/>/);
+  assert.match(login, /held \? <div className="system-designer"/);
+  assert.match(login, /placeHeldInventoryItem/);
+  assert.match(login, /system-seated-key/);
   assert.match(inventoryStyles, /inventory-designer-slot-reveal/);
-  assert.match(inventoryStyles, /\.inventory-cursor-item/);
   assert.doesNotMatch(login, /className="designer-key"|designer-slot__mark/);
   assert.doesNotMatch(styles, /\.designer-key|border:\s*1px dashed/);
 });
