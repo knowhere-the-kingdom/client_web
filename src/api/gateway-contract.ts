@@ -7,6 +7,7 @@ export const GATEWAY_CLIENT_ROUTES = Object.freeze({
   session: "/v1/session",
   resume: "/v1/session/resume",
   characterSelection: "/v1/accounts/character-selection",
+  worldPrewarm: "/v1/worlds/prewarm",
   worlds: "/v1/worlds",
   worldEntry: "/v1/worlds/entry",
   worldBootstrap: "/v1/worlds/bootstrap",
@@ -43,9 +44,43 @@ export type GatewaySessionProjection = Readonly<{
   selection: CharacterSelectionProjection;
 }>;
 
+export type GardenWorldPrewarm = Readonly<{
+  worldId: "garden";
+  status: "ready";
+  sceneRevision: 1;
+}>;
+
 // World entry is mediated by the Gateway. The browser never receives an
 // admission ticket, a tunnel URL, or a direct Gamemaster transport.
 export type WorldEntry = Readonly<{ session: AuthSession }>;
+
+export type GardenSceneProjectionV1 = Readonly<{
+  schemaVersion: 1;
+  sceneId: "garden-alpha-v1";
+  voxelLandscape: Readonly<{
+    kind: "flat-chunk-grid";
+    voxelSizeMeters: 1;
+    chunkSize: 16;
+    chunkRadius: 14;
+    diffuse: "#3f9b45";
+    emissive: "#102d13";
+    specular: "#17351a";
+  }>;
+  skybox: Readonly<{
+    kind: "solid-color-sphere";
+    diameter: 440;
+    segments: 24;
+    dayColor: "#55a9ed";
+    nightColor: "#020718";
+  }>;
+  sun: Readonly<{
+    kind: "orbiting-mythic-sun";
+    dayDurationSeconds: 60;
+    nightDurationSeconds: 60;
+    sunlight: "#fff3d0";
+    maxIntensity: 1.25;
+  }>;
+}>;
 
 export type WorldHudBootstrap = Readonly<{
   schemaVersion: 1;
@@ -55,6 +90,7 @@ export type WorldHudBootstrap = Readonly<{
   leaseExpiresAt: string;
   serverSnapshot: Readonly<{ contentRevision: number; contentHash: string }>;
   hudProjectionRevision: number;
+  scene: GardenSceneProjectionV1;
 }>;
 
 export type WorldHudProjectionV2 = Readonly<{

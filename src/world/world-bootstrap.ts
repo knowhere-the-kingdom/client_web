@@ -1,3 +1,5 @@
+import type { GardenSceneProjectionV1 } from "../api/gateway-contract.ts";
+
 export const WORLD_HUD_BOOTSTRAP_SCHEMA_VERSION = 1 as const;
 
 export type WorldHudBootstrapV1 = Readonly<{
@@ -11,6 +13,7 @@ export type WorldHudBootstrapV1 = Readonly<{
     contentHash: string;
   }>;
   hudProjectionRevision: number;
+  scene: GardenSceneProjectionV1;
 }>;
 
 export type WorldHudBootstrapResult =
@@ -39,6 +42,40 @@ function hasExactKeys(value: object, keys: readonly string[]): boolean {
   return actual.length === keys.length && actual.every((key, index) => key === keys[index]);
 }
 
+function isGardenSceneProjection(value: unknown): value is GardenSceneProjectionV1 {
+  if (!value || typeof value !== "object") return false;
+  const scene = value as Record<string, unknown>;
+  if (!hasExactKeys(scene, ["sceneId", "schemaVersion", "skybox", "sun", "voxelLandscape"])) return false;
+  if (!scene.voxelLandscape || typeof scene.voxelLandscape !== "object") return false;
+  if (!scene.skybox || typeof scene.skybox !== "object") return false;
+  if (!scene.sun || typeof scene.sun !== "object") return false;
+  const landscape = scene.voxelLandscape as Record<string, unknown>;
+  const skybox = scene.skybox as Record<string, unknown>;
+  const sun = scene.sun as Record<string, unknown>;
+  return scene.schemaVersion === 1
+    && scene.sceneId === "garden-alpha-v1"
+    && hasExactKeys(landscape, ["chunkRadius", "chunkSize", "diffuse", "emissive", "kind", "specular", "voxelSizeMeters"])
+    && landscape.kind === "flat-chunk-grid"
+    && landscape.voxelSizeMeters === 1
+    && landscape.chunkSize === 16
+    && landscape.chunkRadius === 14
+    && landscape.diffuse === "#3f9b45"
+    && landscape.emissive === "#102d13"
+    && landscape.specular === "#17351a"
+    && hasExactKeys(skybox, ["dayColor", "diameter", "kind", "nightColor", "segments"])
+    && skybox.kind === "solid-color-sphere"
+    && skybox.diameter === 440
+    && skybox.segments === 24
+    && skybox.dayColor === "#55a9ed"
+    && skybox.nightColor === "#020718"
+    && hasExactKeys(sun, ["dayDurationSeconds", "kind", "maxIntensity", "nightDurationSeconds", "sunlight"])
+    && sun.kind === "orbiting-mythic-sun"
+    && sun.dayDurationSeconds === 60
+    && sun.nightDurationSeconds === 60
+    && sun.sunlight === "#fff3d0"
+    && sun.maxIntensity === 1.25;
+}
+
 export function validateWorldHudBootstrap(
   value: unknown,
   now = Date.now(),
@@ -49,6 +86,7 @@ export function validateWorldHudBootstrap(
     "characterId",
     "hudProjectionRevision",
     "leaseExpiresAt",
+    "scene",
     "schemaVersion",
     "serverSnapshot",
     "worldId",
@@ -71,6 +109,7 @@ export function validateWorldHudBootstrap(
     || !isPositiveInteger(snapshotRecord.contentRevision)
     || !isOpaque(snapshotRecord.contentHash)
     || !isPositiveInteger(record.hudProjectionRevision)
+    || !isGardenSceneProjection(record.scene)
   ) {
     return { ok: false, code: "invalid_bootstrap" };
   }

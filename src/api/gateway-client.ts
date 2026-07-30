@@ -7,6 +7,7 @@ import {
   type GatewayErrorCode,
   type GatewayResult,
   type GatewaySessionProjection,
+  type GardenWorldPrewarm,
   type LogoutResult,
   type WorldEntry,
   type WorldHudBootstrap,
@@ -14,6 +15,7 @@ import {
   type WorldHudProjectionV2,
   type InventoryMoveCommandV2,
 } from "./gateway-contract.ts";
+import { validateWorldHudBootstrap } from "../world/world-bootstrap.ts";
 
 export type GatewayHealth = Readonly<{
   service: "knowhere-gateway";
@@ -42,6 +44,7 @@ export type GatewayClient = Readonly<{
   restoreSession(signal?: AbortSignal): Promise<GatewayResult<GatewaySessionProjection>>;
   resumeSession(signal?: AbortSignal): Promise<GatewayResult<GatewaySessionProjection>>;
   getCharacterSelection(signal?: AbortSignal): Promise<GatewayResult<CharacterSelectionProjection>>;
+  prewarmGarden(signal?: AbortSignal): Promise<GatewayResult<GardenWorldPrewarm>>;
   getWorlds(signal?: AbortSignal): Promise<GatewayResult<WorldDiscovery>>;
   selectCharacter(characterId: string, expectedSelectionVersion: number, signal?: AbortSignal): Promise<GatewayResult<GatewaySessionProjection>>;
   enterWorld(worldId: string, signal?: AbortSignal): Promise<GatewayResult<WorldEntry>>;
@@ -105,6 +108,14 @@ function isSessionProjection(value: unknown): value is GatewaySessionProjection 
     && isCharacterSelection(value.selection);
 }
 
+function isGardenWorldPrewarm(value: unknown): value is GardenWorldPrewarm {
+  return isRecord(value)
+    && Object.keys(value).length === 3
+    && value.worldId === "garden"
+    && value.status === "ready"
+    && value.sceneRevision === 1;
+}
+
 function isWorldDiscovery(value: unknown): value is WorldDiscovery {
   if (!isRecord(value) || !Array.isArray(value.worlds)) return false;
   if (value.defaultWorldId !== null && !isString(value.defaultWorldId)) return false;
@@ -126,15 +137,7 @@ function isWorldEntry(value: unknown): value is WorldEntry {
 }
 
 function isWorldBootstrap(value: unknown): value is WorldHudBootstrap {
-  if (!isRecord(value) || !isRecord(value.serverSnapshot)) return false;
-  return value.schemaVersion === 1
-    && isString(value.worldSessionId)
-    && isString(value.worldId)
-    && isString(value.characterId)
-    && isString(value.leaseExpiresAt)
-    && isNonNegativeInteger(value.serverSnapshot.contentRevision)
-    && isString(value.serverSnapshot.contentHash)
-    && isNonNegativeInteger(value.hudProjectionRevision);
+  return validateWorldHudBootstrap(value).ok;
 }
 
 function isWorldHud(value: unknown): value is WorldHudProjectionV2 {
@@ -390,6 +393,15 @@ export function createGatewayClient(
         "GET",
         null,
         isCharacterSelection,
+        signal,
+      );
+    },
+    prewarmGarden(signal) {
+      return invoke(
+        GATEWAY_CLIENT_ROUTES.worldPrewarm,
+        "POST",
+        { worldId: "garden" },
+        isGardenWorldPrewarm,
         signal,
       );
     },

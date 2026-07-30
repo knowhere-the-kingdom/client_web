@@ -2,7 +2,6 @@ import type {
   GatewaySessionProjection,
   WorldEntry,
   WorldHudBootstrap,
-  WorldDiscovery,
 } from "../api/gateway-contract.ts";
 
 export type ClientFlowState =
@@ -10,13 +9,6 @@ export type ClientFlowState =
   | Readonly<{ phase: "login"; message: string | null }>
   | Readonly<{ phase: "resume-required"; projection: GatewaySessionProjection; message: string | null }>
   | Readonly<{ phase: "character-select"; projection: GatewaySessionProjection; message: string | null }>
-  | Readonly<{ phase: "world-discovery"; projection: GatewaySessionProjection }>
-  | Readonly<{
-    phase: "ready-to-enter";
-    projection: GatewaySessionProjection;
-    discovery: WorldDiscovery;
-    worldId: string;
-  }>
   | Readonly<{
     phase: "gateway-entry";
     projection: GatewaySessionProjection;
@@ -34,7 +26,7 @@ export type ClientFlowState =
   }>
   | Readonly<{
     phase: "error";
-    boundary: "gateway" | "world-discovery" | "world-bootstrap" | "protocol";
+    boundary: "gateway" | "world-bootstrap" | "protocol";
     message: string;
     retryable: boolean;
     projection: GatewaySessionProjection | null;
@@ -54,41 +46,10 @@ export function stateFromSession(projection: GatewaySessionProjection): ClientFl
   ) {
     return { phase: "character-select", projection, message: null };
   }
-  return { phase: "world-discovery", projection };
-}
-
-export function stateFromWorldDiscovery(
-  projection: GatewaySessionProjection,
-  discovery: WorldDiscovery,
-): ClientFlowState {
-  const selectedWorld = discovery.worlds.find(
-    (world) => world.id === discovery.defaultWorldId && world.available,
-  );
-  if (!discovery.defaultWorldId || !selectedWorld) {
-    return {
-      phase: "error",
-      boundary: "world-discovery",
-      message: "No approved local world is currently available.",
-      retryable: true,
-      projection,
-    };
-  }
-  return {
-    phase: "ready-to-enter",
-    projection,
-    discovery,
-    worldId: selectedWorld.id,
-  };
-}
-
-export function beginWorldEntry(
-  state: ClientFlowState,
-): ClientFlowState {
-  if (state.phase !== "ready-to-enter") return state;
   return {
     phase: "gateway-entry",
-    projection: state.projection,
-    worldId: state.worldId,
+    projection,
+    worldId: "garden",
   };
 }
 

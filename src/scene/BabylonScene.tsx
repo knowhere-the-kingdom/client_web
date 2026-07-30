@@ -16,6 +16,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { characterController, gameplayMouseMode, routeCharacterBlockFaceTargetSource } from "../features/character-controller";
 import { loadActiveStatefulWorld } from "./statefulWorldRuntime";
+import type { GardenSceneProjectionV1 } from "../api/gateway-contract";
 
 const SEA_LEVEL = 0;
 const SOLID_BASE = -42;
@@ -1191,7 +1192,7 @@ function createStarfield(scene: Scene) {
   return starRoot;
 }
 
-export function BabylonScene() {
+export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneProjectionV1 }>) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -1252,6 +1253,20 @@ export function BabylonScene() {
 
     safeRun("starfield", () => createStarfield(scene));
 
+    const skybox = MeshBuilder.CreateSphere("garden-solid-color-skybox", {
+      diameter: projection.skybox.diameter,
+      segments: projection.skybox.segments,
+    }, scene);
+    skybox.infiniteDistance = true;
+    const skyboxMaterial = new StandardMaterial("garden-solid-color-skybox-material", scene);
+    skyboxMaterial.backFaceCulling = false;
+    skyboxMaterial.disableLighting = true;
+    skyboxMaterial.disableDepthWrite = true;
+    skyboxMaterial.diffuseColor = Color3.Black();
+    skyboxMaterial.emissiveColor = Color3.FromHexString(projection.skybox.dayColor);
+    skybox.material = skyboxMaterial;
+    skybox.renderingGroupId = 0;
+
     const ambient = new HemisphericLight("void-ambient-light", new Vector3(0, 1, 0), scene);
     ambient.groundColor = new Color3(0.1, 0.18, 0.16);
     ambient.diffuse = new Color3(0.68, 0.78, 0.74);
@@ -1263,8 +1278,9 @@ export function BabylonScene() {
     sun.renderingGroupId = 0;
     const sunMaterial = new StandardMaterial("orbiting-neon-sun-material", scene);
     sunMaterial.disableLighting = true;
-    sunMaterial.diffuseColor = new Color3(1, 0.86, 0.48);
-    sunMaterial.emissiveColor = new Color3(1.8, 1.18, 0.48);
+    const projectedSunlight = Color3.FromHexString(projection.sun.sunlight);
+    sunMaterial.diffuseColor = projectedSunlight;
+    sunMaterial.emissiveColor = projectedSunlight;
     sunMaterial.specularColor = new Color3(1, 0.95, 0.62);
     sun.material = sunMaterial;
 
@@ -1303,9 +1319,12 @@ export function BabylonScene() {
       });
     };
     terrainMaterial = new StandardMaterial("solid-biome-island-material", scene);
-    terrainMaterial.diffuseColor = Color3.White();
-    terrainMaterial.emissiveColor = new Color3(0.035, 0.044, 0.032);
-    terrainMaterial.specularColor = new Color3(0.48, 0.43, 0.35);
+    const projectedTerrainDiffuse = Color3.FromHexString(projection.voxelLandscape.diffuse);
+    const projectedTerrainEmissive = Color3.FromHexString(projection.voxelLandscape.emissive);
+    const projectedTerrainSpecular = Color3.FromHexString(projection.voxelLandscape.specular);
+    terrainMaterial.diffuseColor = projectedTerrainDiffuse;
+    terrainMaterial.emissiveColor = projectedTerrainEmissive;
+    terrainMaterial.specularColor = projectedTerrainSpecular;
     terrainMaterial.specularPower = 56;
     terrainMaterial.backFaceCulling = false;
     wireMaterial = new StandardMaterial("low-light-glowing-triangle-wire-material", scene);
@@ -1503,7 +1522,8 @@ export function BabylonScene() {
       });
       window.dispatchEvent(new CustomEvent("knowhere:entity-runtime-snapshot", { detail: entitySnapshot }));
 
-      const time = (performance.now() - orbitStartedAt) * 0.000035 + Math.PI * 0.38;
+      const orbitDurationMs = (projection.sun.dayDurationSeconds + projection.sun.nightDurationSeconds) * 1000;
+      const time = ((performance.now() - orbitStartedAt) / orbitDurationMs) * Math.PI * 2 + Math.PI * 0.38;
       const radius = 12500;
       const y = Math.sin(time) * 2600 + 6200;
       sun.position.set(Math.cos(time) * radius, y, Math.sin(time) * radius + 5200);
@@ -1516,19 +1536,24 @@ export function BabylonScene() {
       const lowLightWire = Math.pow(1 - daylight, 1.85);
       ambient.intensity = 0.74 + daylight * 0.46;
       ambient.diffuse = new Color3(0.54 + daylight * 0.2, 0.62 + daylight * 0.2, 0.62 + daylight * 0.16);
-      sunLight.intensity = 1.2 + daylight * 3.4;
+      sunLight.intensity = 0.12 + daylight * (projection.sun.maxIntensity - 0.12);
       sunLight.range = 26000;
       const sunToCamera = sun.position.subtract(camera.position);
       const sunRay = new Ray(camera.position, sunToCamera.normalize(), sunToCamera.length());
       const sunOccluded = terrainSurfaces.some((surface) => sunRay.intersectsMesh(surface, false).hit);
       sun.isVisible = !sunOccluded;
       sunHalo.isVisible = !sunOccluded;
-      sunMaterial.emissiveColor = new Color3(1.1 + daylight * 1.05, 0.64 + daylight * 0.84, 0.22 + daylight * 0.44);
+      sunMaterial.emissiveColor = projectedSunlight.scale(0.78 + daylight * 0.72);
+      skyboxMaterial.emissiveColor = Color3.Lerp(
+        Color3.FromHexString(projection.skybox.nightColor),
+        Color3.FromHexString(projection.skybox.dayColor),
+        daylight,
+      );
       haloMaterial.alpha = sunOccluded ? 0 : 0.1 + daylight * 0.16;
       haloMaterial.emissiveColor = new Color3(0.72 + daylight * 0.95, 0.34 + daylight * 0.62, 0.12 + daylight * 0.28);
       if (terrainMaterial) {
-        terrainMaterial.emissiveColor = new Color3(0.055 + lowLightWire * 0.035, 0.058 + lowLightWire * 0.04, 0.045 + lowLightWire * 0.035);
-        terrainMaterial.specularColor = new Color3(0.25 + daylight * 0.34, 0.22 + daylight * 0.3, 0.18 + daylight * 0.24);
+        terrainMaterial.emissiveColor = projectedTerrainEmissive.scale(0.84 + lowLightWire * 0.34);
+        terrainMaterial.specularColor = projectedTerrainSpecular.scale(0.82 + daylight * 0.36);
       }
       if (wireMaterial) {
         wireMaterial.alpha = 0.035 + lowLightWire * 0.82;
@@ -1576,7 +1601,7 @@ export function BabylonScene() {
       scene.dispose();
       engine.dispose();
     };
-  }, []);
+  }, [projection]);
 
   return <canvas ref={canvasRef} className="scene-canvas" />;
 }

@@ -15,6 +15,7 @@ type InventoryItemCardProps = Readonly<{
   definition: InventoryItemDefinitionV1;
   instance: InventoryItemInstanceV1;
   held?: boolean;
+  disabled?: boolean;
   onPickUp: (instanceId: string) => void;
   onCancel: () => void;
 }>;
@@ -27,13 +28,14 @@ type InventorySlotProps = Readonly<{
   }> | null;
   className?: string;
   children?: ReactNode;
+  disabled?: boolean;
   onPlace: (instanceId: string) => void;
   onCancel: () => void;
 }>;
 
 type InventoryCssProperties = CSSProperties & Record<`--${string}`, string | number>;
 
-export function InventoryItemCard({ definition, instance, held = false, onPickUp, onCancel }: InventoryItemCardProps) {
+export function InventoryItemCard({ definition, instance, held = false, disabled = false, onPickUp, onCancel }: InventoryItemCardProps) {
   const tooltipId = `inventory-tooltip-${instance.instanceId}`;
   const style: InventoryCssProperties = {
     "--item-x": 0,
@@ -53,6 +55,7 @@ export function InventoryItemCard({ definition, instance, held = false, onPickUp
       <button
         className={`inventory-item${held ? " is-held-source" : ""}`}
         type="button"
+        disabled={disabled}
         draggable
         style={style}
         data-item-id={definition.id}
@@ -104,8 +107,8 @@ export function InventoryItemCard({ definition, instance, held = false, onPickUp
   );
 }
 
-export function InventorySlot({ definition, heldItem, className = "", children, onPlace, onCancel }: InventorySlotProps) {
-  const compatible = heldItem ? slotAcceptsItem(definition, heldItem.definition) : false;
+export function InventorySlot({ definition, heldItem, className = "", children, disabled = false, onPlace, onCancel }: InventorySlotProps) {
+  const compatible = !disabled && heldItem ? slotAcceptsItem(definition, heldItem.definition) : false;
   const style: InventoryCssProperties = {
     "--slot-width": definition.gridSize.width,
     "--slot-height": definition.gridSize.height,
@@ -131,9 +134,9 @@ export function InventorySlot({ definition, heldItem, className = "", children, 
       style={style}
       data-accepted-item-types={definition.acceptedItemTypes.join(",")}
       aria-label={definition.label}
-      aria-disabled={!compatible}
+      aria-disabled={disabled || !compatible}
       role="button"
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
       onClick={placeHeld}
       onKeyDown={handleKeyDown}
       onDragOver={(event) => {
