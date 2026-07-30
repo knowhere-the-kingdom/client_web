@@ -75,7 +75,7 @@ function disabledReason(state: CharacterControllerState, bound: boolean, slot: M
   if (!bound) return "No binding assigned.";
   if (skill?.requiredStates.length && !skill.requiredStates.includes(state.lifecycle) && !skill.requiredStates.includes(state.movementMode)) return "Required state is not active.";
   if (skill?.blockedStates.includes(state.lifecycle) || skill?.blockedStates.includes(state.movementMode)) return "Current state blocks this action.";
-  if (slot === "movement.sprint" && (state.flags.crouched || state.flags.flying)) return state.flags.crouched ? "Cannot sprint while crouched." : "Cannot sprint while flying.";
+  if (slot === "movement.sprint" && state.flags.crouched) return "Cannot sprint while crouched.";
   if (slot === "movement.dodge" && (state.flags.crouched || state.flags.flying || state.movementMode === "dodge")) return state.movementMode === "dodge" ? "Dodge is already active." : state.flags.crouched ? "Cannot dodge while crouched." : "Cannot dodge while flying.";
   if (slot === "movement.jump" && state.flags.flying) return "Cannot jump while flying.";
   return null;

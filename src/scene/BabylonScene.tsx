@@ -26,6 +26,7 @@ import { createMythicSun } from "./mythic-sun";
 import { isSunInVisibleDaylightArc, prototypeSunPositionAt, safeSunVisualScale } from "./sun-orbit";
 import { voxelHeadingFromForward } from "./compass-heading";
 import { initialBindings } from "../hud/demoData";
+import { FLIGHT_STANCE_MULTIPLIER, sprintSpeedMultiplier } from "../features/character-controller/movementSpeed";
 
 const SEA_LEVEL = 0;
 const SOLID_BASE = -42;
@@ -37,7 +38,6 @@ const TERRAIN_CHUNK_RADIUS = Math.ceil(TERRAIN_SIZE / TERRAIN_CHUNK_SIZE / 2);
 const TERRAIN_VERTICAL_SCALE = 4.85;
 const PLAYER_EYE_HEIGHT = 2;
 const BASE_CAMERA_SPEED = 6;
-const MAX_SPRINT_MULTIPLIER = 10 / 6;
 const DODGE_SPEED = 52;
 const PLAYER_GRAVITY = -18;
 const PLAYER_JUMP_IMPULSE = 6.2;
@@ -1534,10 +1534,14 @@ export function BabylonScene({ projection, worldIdentity, interactive = true }: 
         clearBlockFaceTarget(routedTargetSource.clearReason);
         lastTargetSourceRevision = routedTargetSource.clearReason;
       }
-      const sprintMultiplier = 1 + Math.pow(controllerFrame.sprintCharge, 1.45) * (MAX_SPRINT_MULTIPLIER * controllerFrame.movementModifiers.sprintMultiplier - 1);
+      const sprintMultiplier = sprintSpeedMultiplier(
+        controllerFrame.sprintCharge,
+        controllerFrame.state.flags.flying,
+        controllerFrame.movementModifiers.sprintMultiplier,
+      );
       const stanceMultiplier = controllerFrame.state.flags.crouched
         ? 0.45 * controllerFrame.movementModifiers.crouchMultiplier
-        : controllerFrame.state.flags.flying ? 1.7 * controllerFrame.movementModifiers.flightMultiplier : 1;
+        : controllerFrame.state.flags.flying ? FLIGHT_STANCE_MULTIPLIER * controllerFrame.movementModifiers.flightMultiplier : 1;
       camera.speed = controllerFrame.state.flags.inputLocked ? 0 : BASE_CAMERA_SPEED * controllerFrame.movementModifiers.speedMultiplier * sprintMultiplier * stanceMultiplier;
       if (!controllerFrame.state.flags.inputLocked) {
         const forward = camera.getDirection(new Vector3(0, 0, 1));
@@ -1564,7 +1568,7 @@ export function BabylonScene({ projection, worldIdentity, interactive = true }: 
       const minimumCameraY = cameraGroundY + eyeHeight;
       if (controllerFrame.state.flags.flying) {
         verticalSpeed = 0;
-        camera.position.y += controllerFrame.verticalIntent * PLAYER_FLIGHT_VERTICAL_SPEED * controllerFrame.movementModifiers.flightMultiplier * deltaSeconds;
+        camera.position.y += controllerFrame.verticalIntent * PLAYER_FLIGHT_VERTICAL_SPEED * controllerFrame.movementModifiers.flightMultiplier * sprintMultiplier * deltaSeconds;
       } else {
         if (controllerFrame.jumpRequested) verticalSpeed = PLAYER_JUMP_IMPULSE * controllerFrame.movementModifiers.jumpMultiplier;
         verticalSpeed += PLAYER_GRAVITY * deltaSeconds;

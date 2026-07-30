@@ -38,8 +38,14 @@ test("world position rejects expired leases, stale records, and unsafe coordinat
 
 test("Babylon movement uses the controller and the prototype walk speed", () => {
   const source = readFileSync(new URL("../src/scene/BabylonScene.tsx", import.meta.url), "utf8");
+  const controller = readFileSync(new URL("../src/features/character-controller/controller.ts", import.meta.url), "utf8");
+  const movementActions = readFileSync(new URL("../src/features/character-controller/movementActions.ts", import.meta.url), "utf8");
   assert.match(source, /const BASE_CAMERA_SPEED = 6;/);
   assert.match(source, /removeByType\("FreeCameraKeyboardMoveInput"\)/);
   assert.match(source, /characterController\.pollGamepads/);
   assert.match(source, /const PLAYER_GRAVITY = -18;/);
+  assert.match(controller, /GROUND_SPRINT_RAMP_SECONDS = 1\.35/);
+  assert.match(controller, /FLIGHT_SPRINT_RAMP_SECONDS = 3\.2/);
+  assert.doesNotMatch(controller, /sprinting =[^;]+!this\.state\.flags\.flying/);
+  assert.doesNotMatch(movementActions, /Cannot sprint while flying/);
 });

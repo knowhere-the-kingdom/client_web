@@ -8,7 +8,8 @@ const DODGE_DURATION_MS = 320;
 const JUMP_DURATION_MS = 520;
 const DYING_DURATION_MS = 900;
 const RESPAWN_DURATION_MS = 700;
-const SPRINT_RAMP_SECONDS = 3.2;
+const GROUND_SPRINT_RAMP_SECONDS = 1.35;
+const FLIGHT_SPRINT_RAMP_SECONDS = 3.2;
 
 const actionSlots: Readonly<Partial<Record<CharacterActionId, AbilitySlot>>> = {
   "tome-ultimate": "tome.ultimate",
@@ -355,8 +356,12 @@ export class CharacterController {
   }
 
   tick(now: number, deltaSeconds: number): CharacterControllerFrame {
-    const sprinting = this.isHeld("sprint") && this.hasMovement() && !this.state.flags.crouched && !this.state.flags.flying;
-    this.sprintCharge = Math.max(0, Math.min(1, this.sprintCharge + deltaSeconds / SPRINT_RAMP_SECONDS * (sprinting ? 1 : -2.4)));
+    const sprinting = this.isHeld("sprint") && this.hasMovement() && !this.state.flags.crouched;
+    if (this.state.flags.sprinting !== sprinting) {
+      this.patch({ flags: { ...this.state.flags, sprinting } });
+    }
+    const sprintRampSeconds = this.state.flags.flying ? FLIGHT_SPRINT_RAMP_SECONDS : GROUND_SPRINT_RAMP_SECONDS;
+    this.sprintCharge = Math.max(0, Math.min(1, this.sprintCharge + deltaSeconds / sprintRampSeconds * (sprinting ? 1 : -2.4)));
 
     if (this.state.lifecycle === "dying" && now - this.lifecycleStartedAt >= DYING_DURATION_MS) {
       this.patch({ lifecycle: "dead", movementMode: "idle", flags: { ...this.state.flags, dead: true, inputLocked: true } });
@@ -710,7 +715,7 @@ export class CharacterController {
 
   private updateMovementMode(force = false) {
     if (!force && ["dodge", "jump", "airborne"].includes(this.state.movementMode)) return;
-    if (this.state.flags.flying) this.patch({ movementMode: "flight" });
+    if (this.state.flags.flying) this.patch({ movementMode: "flight", flags: { ...this.state.flags, sprinting: this.isHeld("sprint") && this.hasMovement() } });
     else if (this.state.flags.crouched) this.patch({ movementMode: "crouch" });
     else if (this.isHeld("sprint") && this.hasMovement()) this.patch({ movementMode: "sprint", flags: { ...this.state.flags, sprinting: true } });
     else this.patch({ movementMode: this.hasMovement() ? "locomotion" : "idle", flags: { ...this.state.flags, sprinting: false } });
