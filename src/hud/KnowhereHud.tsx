@@ -550,6 +550,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     [actionSlots, publishedItems],
   );
   const backpack = hudItem("backpack");
+  const lunchbox = hudItem("lunchbox");
   const tome = hudItem("tome");
   const bagSlotCount = useMemo(() => Math.min(20, 4 + (equipItem("belt")?.stats?.bagSlots ?? 0) + (equipItem("outfit")?.stats?.bagSlots ?? 0)), [allItems, activeCharacter?.id]);
   const movementActions = useMemo(() => createMovementActionsReadModel({ state: controllerState, skills: [...demoRuntimeSkills, ...publishedSkills, ...actionbarItemAbilityContracts, ...itemAbilityContracts], bindings, now: abilityClock }), [actionbarItemAbilityContracts, abilityClock, bindings, controllerState, itemAbilityContracts, publishedSkills]);
@@ -759,6 +760,12 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         setOpenBagId((current) => current === backpack.id ? null : backpack.id);
         return;
       }
+      if (event.key.toLowerCase() === "l" && lunchbox) {
+        event.preventDefault();
+        setOpenPanel(null);
+        setOpenBagId((current) => current === lunchbox.id ? null : lunchbox.id);
+        return;
+      }
       if (event.key.toLowerCase() === "c") { event.preventDefault(); setPanel("equipment"); return; }
       if (event.key.toLowerCase() === "u") { event.preventDefault(); setPanel("tome"); return; }
       if (event.key.toLowerCase() === "p") { event.preventDefault(); setPanel("account"); return; }
@@ -772,7 +779,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [backpack, controllerState.health.maximum, controllerState.lifecycle, items, mapItem, selectedAction]);
+  }, [backpack, controllerState.health.maximum, controllerState.lifecycle, items, lunchbox, mapItem, selectedAction]);
 
   useEffect(() => {
     const handleTab = (event: KeyboardEvent) => {
@@ -841,7 +848,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
 
   const targetLocation = (slotKind: string): CanvasItemLocation | null => {
     if (slotKind === "character") return { kind: "hud", slot: "character" };
-    if (["account", "map", "settings", "backpack", "tome", "spirit", "food", "drink"].includes(slotKind)) return { kind: "hud", slot: slotKind };
+    if (["account", "map", "settings", "backpack", "lunchbox", "tome", "spirit", "food", "drink"].includes(slotKind)) return { kind: "hud", slot: slotKind };
     if (slotKind.startsWith("action")) return { kind: "hud", slot: slotKind };
     if (equipmentSlotKinds.has(slotKind) && activeCharacter) return { kind: "equip", charId: activeCharacter.id, slot: slotKind };
     return null;
@@ -910,7 +917,8 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const openItem = (item?: CanvasItem) => {
     if (!item) return;
     if (item.type === "kingdom") setPanel("login");
-    else if (item.type === "account" || item.type === "spirit") setPanel("account");
+    else if (item.type === "account") setPanel("account");
+    else if (item.type === "spirit") { setPanel(null); setOpenBagId((current) => current === "spiritBox1" ? null : "spiritBox1"); }
     else if (item.type === "character") setPanel("equipment");
     else if (item.type === "bag") { setPanel(null); setOpenBagId((current) => current === item.id ? null : item.id); }
     else if (item.type === "tome") setPanel("tome");
@@ -949,42 +957,42 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   };
 
   return (
-    <div className={`hud-root atlas-hud${poweringDown ? " atlas-hud-powering-down" : ""}`} aria-busy={poweringDown} onContextMenu={(event) => { event.preventDefault(); setContextMenu(null); }}>
-      <header className="atlas-topbar">
-        <div className="atlas-utility-group"><div className="atlas-settings-slot">{renderSlot("settings", "Dashboard", hudItem("settings"), "utility", "Esc")}</div><div className="atlas-brand"><strong>Knowhere</strong><span>The Kingdom</span></div></div>
+    <div className={`hud-root atlas-hud prototype-hud${poweringDown ? " atlas-hud-powering-down" : ""}`} aria-busy={poweringDown} onContextMenu={(event) => { event.preventDefault(); setContextMenu(null); }}>
+      <header className="atlas-topbar prototype-hud__top">
+        <div className="atlas-utility-group prototype-hud__designer"><div className="atlas-settings-slot">{renderSlot("settings", "Designer", hudItem("settings"), "utility", "Esc")}</div></div>
         <CompassBar player={mapPosition} markers={defaultMapMarkers} />
-        <div className="atlas-map-group">{mapSlot}</div>
+        <div className="prototype-hud__spirit">{renderSlot("spirit", "Spirit", hudItem("spirit"), "utility", "P")}</div>
       </header>
 
-      <aside className="atlas-side atlas-side-left">
-        <div className="atlas-column-stack">
-          {renderSlot("backpack", "Backpack", backpack, "utility", "B", "atlas-column-anchor atlas-column-anchor-top")}
-          <div className="atlas-side-body"><MeterRail kind="health" current={controllerState.health.current} max={controllerState.health.maximum} /><div className="atlas-column-consumable">{renderSlot("food", "Food", hudItem("food"), "utility", "R")}</div></div>
-          <div className="atlas-side-footer atlas-side-footer-left">
-            {renderSlot("character", "Character", activeCharacter, "utility", "C", "atlas-column-anchor atlas-column-anchor-bottom")}
-            <div className="atlas-mini-ability-group" role="group" aria-label="Movement abilities">
-              {movementAbilities.map((ability, index) => <AtlasItemSlot key={ability.id} item={ability} label={ability.name} size="micro" hotkey={movementAbilityHotkeys[index]} />)}
-            </div>
-          </div>
-        </div>
-        <EventLog channel="player" align="left" logs={logs} />
+      <aside className="prototype-hud__backpack" aria-label="Backpack loadout">
+        {renderSlot("backpack", "Backpack", backpack, "utility", "B")}
       </aside>
 
-      <aside className="atlas-side atlas-side-right">
-        <EventLog channel="spirit" align="right" logs={logs} />
-        <div className="atlas-column-stack">
-          {renderSlot("spirit", "Spirit", hudItem("spirit"), "utility", "P", "atlas-column-anchor atlas-column-anchor-top")}
-          <div className="atlas-side-body"><MeterRail kind="spirit" current={controllerState.resources.spirit.current} max={controllerState.resources.spirit.maximum} /><div className="atlas-column-consumable">{renderSlot("drink", "Drink", hudItem("drink"), "utility", "R")}</div></div>
-          <div className="atlas-side-footer atlas-side-footer-right">
-            <div className="atlas-mini-ability-group" role="group" aria-label="Tome abilities">
-              {tomeAbilities.map((ability, index) => { const slot = abilitySlotForHud(ability.id); return <AtlasItemSlot key={ability.id} item={slot ? withAbilityCooldown(ability, slot) : ability} label={ability.name} size="micro" hotkey={tomeAbilityHotkeys[index]} onClick={() => { if (slot) characterController.activateSlot(slot); }} />; })}
-            </div>
-            {renderSlot("tome", "Tome", tome, "utility", "U", "atlas-column-anchor atlas-column-anchor-bottom")}
-          </div>
-        </div>
-      </aside>
+      <section className="prototype-hud__vitals" aria-label="Player and spirit status">
+        <MeterRail kind="health" current={controllerState.health.current} max={controllerState.health.maximum} />
+        <MeterRail kind="spirit" current={controllerState.resources.spirit.current} max={controllerState.resources.spirit.maximum} />
+      </section>
 
-      <main className="atlas-center-stage"><Crosshair presentation={crosshairPresentation} /><EventLog channel="system" align="center" logs={logs} /></main>
+      <section className="prototype-hud__character-loadout" aria-label="Lunchbox, agility, and map">
+        {renderSlot("lunchbox", "Lunchbox", lunchbox, "utility", "L")}
+        <div className="atlas-mini-ability-group prototype-hud__agility" role="group" aria-label="Agility skills">
+          {movementAbilities.filter((ability) => ability.id !== "movement-dodge").map((ability) => { const index = movementAbilities.findIndex((candidate) => candidate.id === ability.id); return <AtlasItemSlot key={ability.id} item={ability} label={ability.name} size="micro" hotkey={movementAbilityHotkeys[index]} />; })}
+        </div>
+        {mapSlot}
+      </section>
+
+      <section className="prototype-hud__creature" aria-label="Character slot">
+        {renderSlot("character", "Character", activeCharacter, "utility", "C")}
+      </section>
+
+      <section className="prototype-hud__knowledge" aria-label="Knowledge and skills">
+        <div className="atlas-mini-ability-group prototype-hud__knowledge-skills" role="group" aria-label="Knowledge skills">
+          {tomeAbilities.map((ability, index) => { const slot = abilitySlotForHud(ability.id); return <AtlasItemSlot key={ability.id} item={slot ? withAbilityCooldown(ability, slot) : ability} label={ability.name} size={index === 0 ? "small" : "micro"} hotkey={tomeAbilityHotkeys[index]} onClick={() => { if (slot) characterController.activateSlot(slot); }} />; })}
+        </div>
+        {renderSlot("tome", "Knowledge", tome, "utility", "U")}
+      </section>
+
+      <main className="atlas-center-stage"><Crosshair presentation={crosshairPresentation} /><EventLog channel="player" align="left" logs={logs} /><EventLog channel="system" align="center" logs={logs} /><EventLog channel="spirit" align="right" logs={logs} /></main>
 
       <form className="atlas-chat" onSubmit={(event) => { event.preventDefault(); const message = chatDraft.trim(); if (!message) return; appendLog("system", `Message sent: ${message}`, "info"); setChatDraft(""); chatInputRef.current?.blur(); }}>
         <label className="sr-only" htmlFor="atlas-chat-input">Chat message</label>
@@ -992,7 +1000,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         <button type="submit" aria-label="Send message"><AtlasIcon name="chevron" size={0.9} /></button>
       </form>
 
-      <nav className="atlas-actionbar" aria-label="Action bar">{actionSlots.map((item, index) => renderSlot(`action${index}`, `Action ${index + 1}`, item, "action", String(index + 1)))}</nav>
+      <nav className="atlas-actionbar prototype-hud__actionbar" aria-label="Action bar">{actionSlots.map((item, index) => renderSlot(`action${index}`, `Action ${index + 1}`, item, "action", String(index + 1)))}</nav>
 
       {openBagId && items[openBagId] ? <StashPanel bag={items[openBagId]} items={gridItems(openBagId)} capacity={bagSlotCount} draggedItemId={draggedItemId} onDragStart={(item) => { setDraggedItemId(item.id); setDropTarget(`grid:${openBagId}`); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDropGrid={(event, x, y) => handleGridDrop(event, x, y)} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setOpenBagId(null)} /> : null}
 

@@ -101,6 +101,8 @@ export const initialCanvasItems: Record<string, CanvasItem> = {
   belt1: { id: "belt1", type: "belt", name: "Porter's Belt", w: 2, h: 1, icon: "belt", stats: { bagSlots: 2 }, loc: { kind: "equip", charId: "charA", slot: "belt" } },
   outfit1: { id: "outfit1", type: "outfit", name: "Courier's Outfit", w: 2, h: 3, icon: "outfit", stats: { bagSlots: 2 }, loc: { kind: "equip", charId: "charA", slot: "outfit" } },
 	  tome1: { id: "tome1", type: "tome", name: "Tome of Knowhere", w: 2, h: 2, icon: "tome", loc: { kind: "hud", slot: "tome" } },
+  lunchbox1: { id: "lunchbox1", type: "bag", name: "Garden Lunchbox", w: 2, h: 2, icon: "food", grid: { cols: 4, rows: 3 }, loc: { kind: "hud", slot: "lunchbox" } },
+  spiritBox1: { id: "spiritBox1", type: "bag", name: "Spirit Box", w: 2, h: 2, icon: "spirit", grid: { cols: 4, rows: 4 }, loc: { kind: "limbo" } },
   spirit1: { id: "spirit1", type: "spirit", name: "Aveline's Spirit", w: 1, h: 1, icon: "spirit", note: "Bound player spirit", loc: { kind: "hud", slot: "spirit" } },
   food1: { id: "food1", type: "food", name: "Roasted Wayfarer Ration", w: 1, h: 1, icon: "food", quantity: 3, note: "Restores health over time", loc: { kind: "hud", slot: "food" } },
   drink1: { id: "drink1", type: "drink", name: "Springwater Flask", w: 1, h: 1, icon: "drink", quantity: 2, note: "Restores spirit over time", loc: { kind: "hud", slot: "drink" } },
