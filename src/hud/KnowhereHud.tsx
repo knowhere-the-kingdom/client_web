@@ -213,8 +213,9 @@ function MeterRail({ kind, current, max }: { kind: "health" | "spirit"; current:
     <section className={`atlas-meter atlas-meter-${kind} ${change ? `is-${change}` : ""}`} aria-label={`${label}: ${current} of ${max}`}>
       <div className="atlas-meter-heading"><span>{label}</span><strong>{current} / {max}</strong></div>
       <div className="atlas-meter-segments" aria-hidden="true">
-        {[4, 3, 2, 1, 0].map((segment) => {
-          const fill = Math.max(0, Math.min(1, (percent - segment * 20) / 20));
+        {[5, 4, 3, 2, 1, 0].map((segment) => {
+          const segmentPercent = 100 / 6;
+          const fill = Math.max(0, Math.min(1, (percent - segment * segmentPercent) / segmentPercent));
           return <i key={segment} className={fill >= 1 ? "is-filled" : fill > 0 ? "is-partial" : ""}><b style={{ height: `${fill * 100}%` }} /></i>;
         })}
       </div>
@@ -413,9 +414,24 @@ function StashPanel({ bag, items, capacity, draggedItemId, onDragStart, onDragEn
   const columns = bag.grid?.cols ?? 6;
   const rows = bag.grid?.rows ?? 4;
   const title = canonicalStash ? "Stash" : bag.name;
+  const [windowOffset, setWindowOffset] = useState({ x: 0, y: 0 });
+  const startWindowDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0 || (event.target as HTMLElement).closest("button")) return;
+    event.preventDefault();
+    const start = { x: event.clientX, y: event.clientY, offsetX: windowOffset.x, offsetY: windowOffset.y };
+    const move = (next: globalThis.PointerEvent) => setWindowOffset({ x: start.offsetX + next.clientX - start.x, y: start.offsetY + next.clientY - start.y });
+    const finish = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish, { once: true });
+    window.addEventListener("pointercancel", finish, { once: true });
+  };
   return (
-    <section className={`atlas-panel atlas-inventory-panel atlas-stash-panel prototype-floating-panel${spiritBox ? " prototype-spirit-panel" : ` prototype-inventory-window prototype-inventory-window--${inventoryKind}`}`} role="dialog" aria-modal="false" aria-label={spiritBox ? "Spirit of Life" : title}>
-        <header className="atlas-panel-header atlas-stash-header">
+    <section className={`atlas-panel atlas-inventory-panel atlas-stash-panel prototype-floating-panel${spiritBox ? " prototype-spirit-panel" : ` prototype-inventory-window prototype-inventory-window--${inventoryKind}`}`} style={{ "--inventory-window-x": `${windowOffset.x}px`, "--inventory-window-y": `${windowOffset.y}px` } as CSSProperties} role="dialog" aria-modal="false" aria-label={spiritBox ? "Spirit of Life" : title}>
+        <header className="atlas-panel-header atlas-stash-header" onPointerDown={startWindowDrag}>
           <div>{spiritBox ? <span className="atlas-eyebrow">Characters</span> : null}<h2>{spiritBox ? "Spirit of Life" : title}{spiritBox ? null : <small>{columns}×{rows}</small>}</h2>{spiritBox ? <small>Choose the character bound to this Spirit.</small> : null}</div>
           <button type="button" className="atlas-close" onClick={onClose} aria-label="Close stash"><AtlasIcon name="x" size={1.1} /></button>
         </header>
@@ -517,7 +533,7 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
   const previousLifecycle = useRef(controllerState.lifecycle);
   const logSequence = useRef(initialLogs.length);
   const [openPanel, setOpenPanel] = useState<OpenPanel | null>(null);
-  const [openBagId, setOpenBagId] = useState<string | null>(null);
+  const [openBagIds, setOpenBagIds] = useState<string[]>([]);
   const [spiritOpen, setSpiritOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [compassOpen, setCompassOpen] = useState(true);
@@ -795,20 +811,28 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
     const binding = bindings.find((candidate) => candidate.id === id);
     return binding?.primary && binding.primary !== "Unbound" ? binding.primary : binding?.secondary && binding.secondary !== "Unbound" ? binding.secondary : undefined;
   };
+  const toggleBagWindow = (bagId: string) => setOpenBagIds((current) => current.includes(bagId) ? current.filter((id) => id !== bagId) : [...current, bagId]);
 
   useEffect(() => characterController.subscribeActionSignals((signal) => {
     if (signal.phase !== "pressed") return;
     if (signal.actionId === "backpack" && backpack) {
-      setOpenPanel(null);
-      setOpenBagId((current) => current === backpack.id ? null : backpack.id);
+      toggleBagWindow(backpack.id);
     } else if (signal.actionId === "stash") {
-      setOpenPanel(null);
-      setOpenBagId((current) => current === "stashVault" ? null : "stashVault");
+      toggleBagWindow("stashVault");
     } else if (signal.actionId === "lunchbox" && lunchbox) {
-      setOpenPanel(null);
-      setOpenBagId((current) => current === lunchbox.id ? null : lunchbox.id);
+      toggleBagWindow(lunchbox.id);
+    } else if (signal.actionId === "character" && activeCharacter) {
+      setMapOpen(false);
+      setOpenPanel((current) => {
+        const next = current === "equipment" ? null : "equipment";
+        if (next === "equipment") {
+          gameplayMouseMode.cancelFreeDrag();
+          if (document.pointerLockElement) document.exitPointerLock();
+        }
+        return next;
+      });
     }
-  }), [backpack?.id, lunchbox?.id]);
+  }), [activeCharacter?.id, backpack?.id, lunchbox?.id]);
 
   const rotateActionSelection = (side: "left" | "right", direction: -1 | 1) => {
     const update = side === "left" ? setLeftSelections : setRightSelections;
@@ -884,7 +908,6 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
         });
         return;
       }
-      if (event.key.toLowerCase() === "c") { event.preventDefault(); setPanel("equipment"); return; }
       if (event.key.toLowerCase() === "u") { event.preventDefault(); setPanel("tome"); return; }
       if (event.key.toLowerCase() === "p") { event.preventDefault(); setPanel("account"); return; }
       if (event.key.toLowerCase() === "m" && mapItem) { event.preventDefault(); setMapOpen(true); return; }
@@ -892,7 +915,7 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
         setContextMenu(null);
         setMapOpen(false);
         setOpenPanel(null);
-        setOpenBagId(null);
+        setOpenBagIds([]);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -953,7 +976,6 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
 
   const setPanel = (panel: OpenPanel | null) => {
     setMapOpen(false);
-    setOpenBagId(null);
     if (panel === "equipment") {
       gameplayMouseMode.cancelFreeDrag();
       if (document.pointerLockElement) document.exitPointerLock();
@@ -989,8 +1011,8 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
 
   const moveItem = async (itemId: string, destination: CanvasItemLocation) => {
     const isScopedStashDemo = itemId.startsWith("stash");
-    if (!isScopedStashDemo && destination.kind === "grid" && destination.bagId === "stashVault") {
-      appendLog("system", "The prototype stash cannot accept an authoritative inventory item.", "warning");
+    if (!isScopedStashDemo && destination.kind === "grid" && destination.bagId === "stashVault" && projection && onInventoryMove) {
+      appendLog("system", "The local stash cannot accept a server-projected inventory item without confirmation.", "warning");
       setDraggedItemId(null);
       setDropTarget(null);
       return false;
@@ -1067,9 +1089,9 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
     else if (item.type === "account") setPanel("account");
     else if (item.type === "spirit") setSpiritOpen((current) => !current);
     else if (item.type === "character") setPanel("equipment");
-    else if (item.type === "bag") setOpenBagId((current) => current === item.id ? null : item.id);
+    else if (item.type === "bag") toggleBagWindow(item.id);
     else if (item.type === "tome") setPanel("tome");
-    else if (item.type === "map") { setOpenPanel(null); setOpenBagId(null); setMapOpen(true); }
+    else if (item.type === "map") { setOpenPanel(null); setMapOpen(true); }
     else if (item.type === "settings") window.location.assign("/dashboard");
     else if (item.type === "food") { characterController.heal(20); setItems((current) => ({ ...current, [item.id]: { ...current[item.id], quantity: Math.max(0, (current[item.id].quantity ?? 1) - 1) } })); }
     else if (item.type === "drink") { characterController.restoreSpirit(20); setItems((current) => ({ ...current, [item.id]: { ...current[item.id], quantity: Math.max(0, (current[item.id].quantity ?? 1) - 1) } })); }
@@ -1120,11 +1142,8 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
         {renderSlot("lunchbox", "Lunchbox", lunchbox, "utility", bindingLabel("lunchbox"))}
       </aside>
 
-      <section className="prototype-hud__character-loadout" aria-label="Lunchbox, agility, and map">
+      <section className="prototype-hud__character-loadout" aria-label="Map slot">
         {mapSlot}
-        <div className="atlas-mini-ability-group prototype-hud__agility" role="group" aria-label="Agility skills">
-          {movementAbilities.filter((ability) => ability.id !== "movement-dodge").map((ability) => { const index = movementAbilities.findIndex((candidate) => candidate.id === ability.id); return <AtlasItemSlot key={ability.id} item={ability} label={ability.name} size="micro" hotkey={movementAbilityHotkeys[index]} />; })}
-        </div>
       </section>
 
       <section className="prototype-hud__knowledge" aria-label="Knowledge and skills">
@@ -1148,25 +1167,28 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
       <nav className="atlas-actionbar prototype-hud__actionbar" aria-label="Action slots">
         <div className="prototype-hud__action-side prototype-hud__action-side--left">
           <div className="prototype-hud__action-vital prototype-hud__action-vital--health"><MeterRail kind="health" current={controllerState.health.current} max={controllerState.health.maximum} /></div>
-          <div className="prototype-hud__action-grid" aria-label="Odd action slots">
+          <div className="prototype-hud__action-grid" aria-label="Odd action slots surrounding the active left action">
             {oddActionIndices.filter((index) => index !== selectedLeftIndex).map((index) => renderSlot(actionSlotName(activeLoadout, index), `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
           </div>
-          <AtlasItemSlot item={selectedLeftItem} label="Left Click" size="action" hotkey="LMB" selected className="prototype-hud__hand-action" onClick={() => activateHandAction("left")} />
+          <AtlasItemSlot item={selectedLeftItem} label="Left Action" size="action" hotkey={bindingLabel("left-hand")} selected className="prototype-hud__hand-action prototype-hud__hand-action--left" onClick={() => activateHandAction("left")} />
         </div>
         <section className="prototype-hud__creature" aria-label="Character slot">
-          {renderSlot("character", "Character", activeCharacter, "utility", "C")}
+          {renderSlot("character", "Character", activeCharacter, "utility", bindingLabel("character"), "prototype-hud__character-anchor")}
+          <div className="atlas-mini-ability-group prototype-hud__agility" role="group" aria-label="Movement abilities">
+            {movementAbilities.filter((ability) => ability.id !== "movement-dodge").map((ability) => { const index = movementAbilities.findIndex((candidate) => candidate.id === ability.id); return <AtlasItemSlot key={ability.id} item={ability} label={ability.name} size="micro" hotkey={movementAbilityHotkeys[index]} />; })}
+          </div>
           <span className="prototype-hud__loadout-index">Loadout {activeLoadout + 1}/3 · X</span>
         </section>
         <div className="prototype-hud__action-side prototype-hud__action-side--right">
           <div className="prototype-hud__action-vital prototype-hud__action-vital--spirit"><MeterRail kind="spirit" current={controllerState.resources.spirit.current} max={controllerState.resources.spirit.maximum} /></div>
-          <AtlasItemSlot item={selectedRightItem} label="Right Click" size="action" hotkey="RMB" selected className="prototype-hud__hand-action" onClick={() => activateHandAction("right")} />
-          <div className="prototype-hud__action-grid" aria-label="Even action slots">
+          <AtlasItemSlot item={selectedRightItem} label="Right Action" size="action" hotkey={bindingLabel("right-hand")} selected className="prototype-hud__hand-action prototype-hud__hand-action--right" onClick={() => activateHandAction("right")} />
+          <div className="prototype-hud__action-grid" aria-label="Even action slots surrounding the active right action">
             {evenActionIndices.filter((index) => index !== selectedRightIndex).map((index) => renderSlot(actionSlotName(activeLoadout, index), `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
           </div>
         </div>
       </nav>
 
-      {openBagId && items[openBagId] ? <StashPanel bag={items[openBagId]} items={openBagId === "spiritBox1" ? allItems.filter((item) => item.type === "character").map((item, index) => ({ ...item, loc: { kind: "grid", bagId: "spiritBox1", x: index % 4, y: Math.floor(index / 4) } })) : gridItems(openBagId)} capacity={bagSlotCount} draggedItemId={draggedItemId} onDragStart={(item) => { setDraggedItemId(item.id); setDropTarget(`grid:${openBagId}`); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDropGrid={(event, x, y) => handleGridDrop(event, x, y)} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setOpenBagId(null)} /> : null}
+      {openBagIds.map((bagId) => items[bagId] ? <StashPanel key={bagId} bag={items[bagId]} items={gridItems(bagId)} capacity={bagSlotCount} draggedItemId={draggedItemId} onDragStart={(item) => { setDraggedItemId(item.id); setDropTarget(`grid:${bagId}`); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDropGrid={(event, x, y) => handleGridDrop(event, x, y)} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setOpenBagIds((current) => current.filter((id) => id !== bagId))} /> : null)}
       {spiritOpen ? <StashPanel bag={items.spiritBox1} items={allItems.filter((item) => item.type === "character").map((item, index) => ({ ...item, loc: { kind: "grid", bagId: "spiritBox1", x: index % 4, y: Math.floor(index / 4) } }))} capacity={4} draggedItemId={draggedItemId} onDragStart={(item) => setDraggedItemId(item.id)} onDragEnd={() => setDraggedItemId(null)} onDropGrid={(event) => event.preventDefault()} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setSpiritOpen(false)} /> : null}
 
       {openPanel === "login" ? <LoginPanel onLogin={loginAs} onClose={() => setPanel(null)} /> : null}

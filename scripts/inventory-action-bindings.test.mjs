@@ -41,3 +41,16 @@ test("inventory surfaces preserve prototype 32px footprint variables", async () 
   assert.match(styles, /width: calc\(var\(--prototype-inventory-unit\) \* var\(--item-columns\)\)/);
   assert.match(styles, /height: calc\(var\(--prototype-inventory-unit\) \* var\(--item-rows\)\)/);
 });
+
+test("stash, backpack, and lunchbox remain independent draggable windows", async () => {
+  const hud = await readFile(new URL("../src/hud/KnowhereHud.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.match(hud, /const \[openBagIds, setOpenBagIds\] = useState<string\[\]>\(\[\]\)/);
+  assert.match(hud, /openBagIds\.map\(\(bagId\)/);
+  assert.match(hud, /onPointerDown=\{startWindowDrag\}/);
+  assert.match(hud, /setOpenBagIds\(\(current\) => current\.includes\(bagId\)/);
+  assert.match(hud, /destination\.bagId === "stashVault" && projection && onInventoryMove/);
+  assert.match(styles, /\.prototype-inventory-window--backpack/);
+  assert.match(styles, /\.prototype-inventory-window--lunchbox/);
+  assert.match(styles, /\.prototype-inventory-window--stash/);
+});

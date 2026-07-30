@@ -55,6 +55,7 @@ const defaultKeys: Readonly<Record<string, CharacterActionId>> = {
 const runtimeGamepadActions = new Set<CharacterActionId>([
   "move-forward", "move-back", "strafe-left", "strafe-right",
   "sprint", "jump", "crouch", "flight",
+  "character",
   "actionbar-1", "actionbar-2", "actionbar-3", "actionbar-4",
 ]);
 

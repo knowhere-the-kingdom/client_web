@@ -21,7 +21,7 @@ import type { WorldPositionIdentity } from "../features/character-controller/pos
 import { loadActiveStatefulWorld } from "./statefulWorldRuntime";
 import type { GardenSceneProjectionV1 } from "../api/gateway-contract";
 import { createMythicSun } from "./mythic-sun";
-import { prototypeSunPositionAt } from "./sun-orbit";
+import { isSunInVisibleDaylightArc, prototypeSunPositionAt, safeSunVisualScale } from "./sun-orbit";
 import { voxelHeadingFromForward } from "./compass-heading";
 import { initialBindings } from "../hud/demoData";
 
@@ -1592,9 +1592,11 @@ export function BabylonScene({ projection, worldIdentity, interactive = true }: 
       sunLight.intensity = 0.12 + daylight * (projection.sun.maxIntensity - 0.12);
       const sunToCamera = sunPosition.subtract(camera.position);
       const sunDistance = sunToCamera.length();
+      sunAsset.root.scaling.setAll(safeSunVisualScale(projection.sun.diameter, sunDistance));
       const sunRay = new Ray(camera.position, sunToCamera.normalize(), sunDistance);
       const sunOccluded = terrainSurfaces.some((surface) => sunRay.intersectsMesh(surface, false).hit);
-      sunAsset.update(deltaSeconds * 1000, sunOccluded ? 0 : 1);
+      const sunVisible = isSunInVisibleDaylightArc(time) && !sunOccluded;
+      sunAsset.update(deltaSeconds * 1000, sunVisible ? 1 : 0);
       skyboxMaterial.emissiveColor = Color3.Lerp(
         Color3.FromHexString(projection.skybox.nightColor),
         Color3.FromHexString(projection.skybox.dayColor),

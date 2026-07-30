@@ -3653,6 +3653,110 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
   .atlas-stash-panel:has(.atlas-bag-grid[data-bag-id="stashVault"]) { right: .25rem; left: .25rem; width: auto; }
 }
 
+/* Independent inventory windows share the prototype grid but keep separate,
+   draggable surfaces so items can move between open containers. */
+.prototype-inventory-window {
+  transform: translate(var(--inventory-window-x, 0), var(--inventory-window-y, 0));
+}
+.prototype-inventory-window .atlas-stash-header {
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+.prototype-inventory-window--backpack {
+  top: calc(var(--knowhere-grid-unit) * 4);
+  right: auto;
+  left: var(--knowhere-grid-unit);
+}
+.prototype-inventory-window--lunchbox {
+  top: auto;
+  right: auto;
+  bottom: calc(var(--knowhere-grid-unit) * 2);
+  left: calc(var(--knowhere-grid-unit) * 2);
+}
+.prototype-inventory-window--stash {
+  top: calc(var(--knowhere-grid-unit) * 4);
+  right: var(--knowhere-grid-unit);
+  left: auto;
+}
+
+/* Exact dev_prototype character equipment geometry. The character HUD anchor
+   stays in the action bar; this surface grows upward from its top edge. */
+.atlas-equipment-panel-prototype {
+  --equipment-grid-unit: clamp(2.25rem, 4.35vmin, 3rem);
+  bottom: calc(max(var(--knowhere-grid-unit), env(safe-area-inset-bottom)) + (var(--knowhere-grid-unit) * 2));
+}
+.atlas-equipment-prototype-grid {
+  display: grid;
+  grid-template-columns: repeat(3, calc(var(--equipment-grid-unit) * 2));
+  grid-template-rows:
+    calc(var(--equipment-grid-unit) * 2)
+    calc(var(--equipment-grid-unit) * 3)
+    var(--equipment-grid-unit)
+    calc(var(--equipment-grid-unit) * 2);
+  gap: calc(var(--equipment-grid-unit) / 4) var(--equipment-grid-unit);
+  place-items: center;
+}
+.atlas-equipment-prototype-slot {
+  width: calc(var(--equipment-slot-cols) * var(--equipment-grid-unit));
+  height: calc(var(--equipment-slot-rows) * var(--equipment-grid-unit));
+  margin: 0;
+}
+.atlas-equipment-prototype-slot .atlas-slot {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: color-mix(in srgb, var(--atlas-ink) 78%, transparent);
+  box-shadow: inset 0 0 calc(var(--equipment-grid-unit) * .7) color-mix(in srgb, var(--atlas-accent) 13%, transparent);
+}
+.atlas-equipment-prototype-slot .atlas-slot::before {
+  z-index: 1;
+  inset: 0;
+  border: 0;
+  background: repeating-linear-gradient(to bottom, var(--atlas-gold-muted) 0 .375rem, transparent .375rem .5rem) 50% 0 / .0625rem 100% no-repeat;
+  opacity: .72;
+}
+.atlas-equipment-prototype-slot--head .atlas-slot::before,
+.atlas-equipment-prototype-slot--footwear .atlas-slot::before {
+  background:
+    repeating-linear-gradient(to bottom, var(--atlas-gold-muted) 0 .375rem, transparent .375rem .5rem) 50% 0 / .0625rem 100% no-repeat,
+    repeating-linear-gradient(to right, var(--atlas-gold-muted) 0 .375rem, transparent .375rem .5rem) 0 50% / 100% .0625rem no-repeat;
+}
+.atlas-equipment-prototype-slot--left .atlas-slot::before,
+.atlas-equipment-prototype-slot--outfit .atlas-slot::before,
+.atlas-equipment-prototype-slot--right .atlas-slot::before {
+  background:
+    repeating-linear-gradient(to bottom, var(--atlas-gold-muted) 0 .375rem, transparent .375rem .5rem) 50% 0 / .0625rem 100% no-repeat,
+    repeating-linear-gradient(to right, var(--atlas-gold-muted) 0 .375rem, transparent .375rem .5rem) 0 33.333% / 100% .0625rem no-repeat,
+    repeating-linear-gradient(to right, var(--atlas-gold-muted) 0 .375rem, transparent .375rem .5rem) 0 66.667% / 100% .0625rem no-repeat;
+}
+.atlas-equipment-prototype-slot .atlas-slot:has(.atlas-slot-name)::before { opacity: 0; }
+.atlas-equipment-prototype-slot .atlas-slot-caption {
+  color: var(--atlas-text-primary);
+  font-size: clamp(.5rem, 1.1vmin, .65rem);
+  text-shadow: 0 .0625rem .125rem #000;
+}
+.atlas-equipment-prototype-slot--head { grid-area: 1 / 2; }
+.atlas-equipment-prototype-slot--left { grid-area: 2 / 1; }
+.atlas-equipment-prototype-slot--outfit { grid-area: 2 / 2; }
+.atlas-equipment-prototype-slot--right { grid-area: 2 / 3; }
+.atlas-equipment-prototype-slot--belt { grid-area: 3 / 2; }
+.atlas-equipment-prototype-slot--footwear { grid-area: 4 / 2; }
+.atlas-equipment-prototype-close {
+  top: calc(var(--equipment-grid-unit) * -.75);
+  right: calc(var(--equipment-grid-unit) * -1.25);
+  width: var(--knowhere-grid-unit);
+  height: var(--knowhere-grid-unit);
+  color: var(--atlas-text-primary);
+  background: color-mix(in srgb, var(--atlas-ink) 82%, transparent);
+}
+
+@media (max-height: 44rem), (max-width: 42rem) {
+  .atlas-equipment-panel-prototype {
+    --equipment-grid-unit: clamp(1.8rem, 4.6vmin, 2.25rem);
+  }
+}
+
 /* dev_prototype inventory contract: Diablo-style footprint grids use the same
    32px theme unit as HUD slots. Panels are direct world overlays, not modal
    cards, and every item occupies its declared subgrid footprint. */
@@ -3934,19 +4038,16 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
 .prototype-hud__action-side { position: relative; }
 .prototype-hud__action-vital {
   position: absolute;
-  bottom: calc(100% + .35rem);
-  width: calc(var(--knowhere-grid-unit) * 4);
-  height: .8rem;
+  bottom: calc(100% + var(--knowhere-grid-unit));
+  left: 50%;
+  width: var(--prototype-action-cell, calc(var(--knowhere-grid-unit) * 2));
+  height: calc(var(--prototype-action-cell, calc(var(--knowhere-grid-unit) * 2)) * 6);
+  transform: translateX(-50%);
   pointer-events: none;
 }
-.prototype-hud__action-vital--health { left: 0; }
-.prototype-hud__action-vital--spirit { right: 0; }
 .prototype-hud__action-vital .atlas-meter {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: 1fr;
-  align-items: center;
-  gap: .35rem;
+  position: relative;
+  display: block;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -3956,12 +4057,27 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
   box-shadow: none;
   backdrop-filter: none;
 }
-.prototype-hud__action-vital .atlas-meter-heading { position: static; display: block; min-width: 2.8rem; text-align: left; }
-.prototype-hud__action-vital--spirit .atlas-meter-heading { text-align: right; }
+.prototype-hud__action-vital .atlas-meter-heading { position: absolute; z-index: 2; top: .35rem; right: 0; left: 0; display: block; min-width: 0; text-align: center; }
+.prototype-hud__action-vital--spirit .atlas-meter-heading { text-align: center; }
 .prototype-hud__action-vital .atlas-meter-heading span { display: none; }
-.prototype-hud__action-vital .atlas-meter-heading strong { color: rgba(255,255,255,.82); font-size: .58rem; font-weight: 500; }
-.prototype-hud__action-vital .atlas-meter-segments { display: flex; flex-direction: row; gap: .12rem; height: .42rem; }
-.prototype-hud__action-vital .atlas-meter-segments > i { min-width: 0; min-height: 0; border-width: .04rem; background: rgba(0,0,0,.18); box-shadow: none; }
+.prototype-hud__action-vital .atlas-meter-heading strong { color: rgba(255,255,255,.9); font-size: .58rem; font-weight: 600; text-shadow: 0 .0625rem .16rem #000; }
+.prototype-hud__action-vital .atlas-meter-segments {
+  display: grid;
+  grid-template-rows: repeat(6, var(--prototype-action-cell));
+  gap: 0;
+  width: 100%;
+  height: 100%;
+}
+.prototype-hud__action-vital .atlas-meter-segments > i {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  border-width: .04rem;
+  border-radius: 0;
+  background: rgba(0,0,0,.12);
+  box-shadow: none;
+}
+.prototype-hud__action-vital .atlas-meter-segments > i::after { inset: .12rem; opacity: .45; }
 
 .prototype-stash-panel--canonical {
   border-color: color-mix(in srgb, var(--prototype-gold) 72%, transparent);
@@ -4081,7 +4197,10 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
 /* HUD geometry is expressed in the canonical 32px voxel/UI unit. */
 .prototype-hud {
   --prototype-grid: var(--knowhere-grid-unit);
-  --atlas-action-slot-size: var(--knowhere-grid-unit);
+  /* Action items occupy a readable 2x2 inventory footprint while every edge
+     remains aligned to the canonical 32px UI grid. */
+  --prototype-action-cell: calc(var(--knowhere-grid-unit) * 2);
+  --atlas-action-slot-size: var(--prototype-action-cell);
 }
 .prototype-hud .prototype-hud__top {
   top: max(var(--knowhere-grid-unit), env(safe-area-inset-top));
@@ -4136,19 +4255,21 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
 
 .prototype-hud .prototype-hud__actionbar {
   bottom: max(var(--knowhere-grid-unit), env(safe-area-inset-bottom));
-  grid-template-columns: calc(var(--knowhere-grid-unit) * 3) calc(var(--knowhere-grid-unit) * 2) calc(var(--knowhere-grid-unit) * 3);
+  grid-template-columns: calc(var(--prototype-action-cell) * 3) calc(var(--knowhere-grid-unit) * 2) calc(var(--prototype-action-cell) * 3);
   gap: var(--knowhere-grid-unit);
   align-items: end;
   width: auto;
   padding: 0;
+  transform: translateX(-50%) scale(var(--prototype-hud-scale, 1));
+  transform-origin: bottom center;
 }
 .prototype-hud__action-side {
   display: grid;
-  grid-template-columns: repeat(3, var(--knowhere-grid-unit));
-  grid-template-rows: repeat(3, var(--knowhere-grid-unit));
+  grid-template-columns: repeat(3, var(--prototype-action-cell));
+  grid-template-rows: repeat(3, var(--prototype-action-cell));
   gap: 0;
-  width: calc(var(--knowhere-grid-unit) * 3);
-  height: calc(var(--knowhere-grid-unit) * 3);
+  width: calc(var(--prototype-action-cell) * 3);
+  height: calc(var(--prototype-action-cell) * 3);
 }
 .prototype-hud__action-grid { display: contents; }
 .prototype-hud__action-grid > :nth-child(1) { grid-column: 2; grid-row: 1; }
@@ -4157,31 +4278,62 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
 .prototype-hud__action-grid > :nth-child(4) { grid-column: 2; grid-row: 3; }
 .prototype-hud__action-grid .atlas-slot-wrap-action,
 .prototype-hud__hand-action {
-  width: var(--knowhere-grid-unit);
-  height: var(--knowhere-grid-unit);
+  width: var(--prototype-action-cell);
+  height: var(--prototype-action-cell);
   margin: 0;
 }
 .prototype-hud__action-grid .atlas-slot-wrap-action .atlas-slot,
 .prototype-hud__hand-action .atlas-slot {
-  width: var(--knowhere-grid-unit);
-  height: var(--knowhere-grid-unit);
-  min-height: var(--knowhere-grid-unit);
+  width: var(--prototype-action-cell);
+  height: var(--prototype-action-cell);
+  min-height: var(--prototype-action-cell);
 }
 .prototype-hud__hand-action {
   grid-column: 2;
   grid-row: 2;
   align-self: stretch;
 }
+.prototype-hud__hand-action .atlas-slot {
+  border-color: var(--prototype-cyan);
+  box-shadow: inset 0 0 0 .1rem color-mix(in srgb, #000 70%, transparent), 0 0 .9rem color-mix(in srgb, var(--prototype-cyan) 32%, transparent);
+}
+.prototype-hud__hand-action .atlas-slot-hotkey { font-size: .62rem; font-weight: 700; }
+.prototype-hud__hand-action .atlas-slot-art { inset: .65rem; }
 .prototype-hud__action-grid .atlas-slot-caption,
 .prototype-hud__hand-action .atlas-slot-caption { display: none; }
 .prototype-hud__creature {
   position: relative;
   inset: auto;
   display: grid;
+  grid-template-rows: calc(var(--knowhere-grid-unit) * 2) var(--knowhere-grid-unit);
+  row-gap: var(--knowhere-grid-unit);
   align-self: end;
   justify-items: center;
   width: calc(var(--knowhere-grid-unit) * 2);
   transform: none;
+}
+.prototype-hud__creature .prototype-hud__agility {
+  position: static;
+  display: grid;
+  grid-template-columns: repeat(4, var(--knowhere-grid-unit));
+  gap: 0;
+  justify-self: center;
+  width: calc(var(--knowhere-grid-unit) * 4);
+  height: var(--knowhere-grid-unit);
+}
+.prototype-hud__character-anchor,
+.prototype-hud__character-anchor .atlas-slot {
+  width: calc(var(--knowhere-grid-unit) * 2);
+  height: calc(var(--knowhere-grid-unit) * 2);
+  min-height: calc(var(--knowhere-grid-unit) * 2);
+}
+.prototype-hud__character-anchor .atlas-slot-caption {
+  display: block;
+  max-width: calc(var(--knowhere-grid-unit) * 2);
+  overflow: hidden;
+  color: #fff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .prototype-hud__loadout-index { bottom: calc(100% + 0.15rem); }
 
@@ -4209,9 +4361,96 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
 
 @media (max-width: 42rem) {
   .prototype-hud .prototype-hud__actionbar {
-    grid-template-columns: calc(var(--knowhere-grid-unit) * 3) calc(var(--knowhere-grid-unit) * 2) calc(var(--knowhere-grid-unit) * 3);
+    grid-template-columns: calc(var(--prototype-action-cell) * 3) calc(var(--knowhere-grid-unit) * 2) calc(var(--prototype-action-cell) * 3);
     gap: 0;
     width: auto;
   }
   .prototype-hud .atlas-compass { width: min(calc(var(--knowhere-grid-unit) * 11), calc(100vw - (var(--knowhere-grid-unit) * 5))); }
 }
+@media (max-width: 42rem) {
+  /* Keep every action item a logical 2x2 cell. Scale the complete anchored HUD
+     group as one unit on narrow phones instead of changing item footprints. */
+  .prototype-hud { --prototype-hud-scale: .78; }
+}
+@media (max-width: 30rem) {
+  .prototype-hud { --prototype-hud-scale: .64; }
+}
+@media (max-height: 42rem) {
+  .prototype-hud { --prototype-hud-scale: .72; }
+}
+@media (max-height: 30rem) {
+  .prototype-hud { --prototype-hud-scale: .54; }
+}
+
+/* Final HUD anchors. Fixed corner utilities must not participate in the topbar
+   grid, otherwise the compass becomes the first in-flow child and falls into
+   the left column. The collapsed compass item keeps the identical anchor. */
+.prototype-hud .prototype-hud__top > .atlas-compass,
+.prototype-hud .prototype-hud__top > .prototype-hud__compass-slot {
+  position: fixed;
+  z-index: 12;
+  top: max(var(--knowhere-grid-unit), env(safe-area-inset-top));
+  left: 50%;
+  margin: 0;
+  transform: translateX(-50%);
+}
+.prototype-hud .prototype-hud__top > .atlas-compass {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* Ten canonical cells is the requested wide-screen inset. A geometric upper
+   bound protects a central sight corridor; four cells clear the bag utilities.
+   Narrow layouts suppress side copies before these constraints can collide. */
+.prototype-hud {
+  --hud-reticle-corridor-half: clamp(10rem, 14vw, 17rem);
+  --hud-event-log-width: clamp(10rem, 15vw, 18rem);
+  --hud-event-log-inset: clamp(
+    calc(var(--knowhere-grid-unit) * 4),
+    calc(var(--knowhere-grid-unit) * 10),
+    calc(50vw - var(--hud-reticle-corridor-half) - var(--hud-event-log-width))
+  );
+}
+.prototype-hud .atlas-center-stage .atlas-event-log-left,
+.prototype-hud .atlas-center-stage .atlas-event-log-right {
+  width: var(--hud-event-log-width);
+}
+.prototype-hud .atlas-center-stage .atlas-event-log-left {
+  left: max(env(safe-area-inset-left), var(--hud-event-log-inset));
+}
+.prototype-hud .atlas-center-stage .atlas-event-log-right {
+  right: max(env(safe-area-inset-right), var(--hud-event-log-inset));
+}
+@media (max-width: 68rem) {
+  .prototype-hud .atlas-center-stage > .atlas-event-log-left,
+  .prototype-hud .atlas-center-stage > .atlas-event-log-right { display: none; }
+}
+
+/* The legacy corner-bracket reticle selectors carry nth-child specificity.
+   Reset every edge before applying the shared dashboard/live reticle geometry
+   so saved settings render identically in both places. */
+.atlas-crosshair-reticle > i[class^="reticle-part-"] {
+  inset: auto;
+  border: 0;
+  background: currentColor;
+}
+.atlas-crosshair-reticle > i.reticle-part-top,
+.atlas-crosshair-reticle > i.reticle-part-bottom {
+  left: 50%;
+  width: var(--atlas-crosshair-line-width, 2px);
+  height: max(0px, calc((var(--atlas-crosshair-size, 1.42rem) / 2) - var(--atlas-crosshair-gap, 4px)));
+  transform: translateX(-50%);
+}
+.atlas-crosshair-reticle > i.reticle-part-top { top: 0; }
+.atlas-crosshair-reticle > i.reticle-part-bottom { bottom: 0; }
+.atlas-crosshair-reticle > i.reticle-part-left,
+.atlas-crosshair-reticle > i.reticle-part-right {
+  top: 50%;
+  width: max(0px, calc((var(--atlas-crosshair-size, 1.42rem) / 2) - var(--atlas-crosshair-gap, 4px)));
+  height: var(--atlas-crosshair-line-width, 2px);
+  transform: translateY(-50%);
+}
+.atlas-crosshair-reticle > i.reticle-part-left { left: 0; }
+.atlas-crosshair-reticle > i.reticle-part-right { right: 0; }
