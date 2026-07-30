@@ -73,8 +73,9 @@ const defaultMapMarkers: HudMapMarker[] = [
   { id: "boss-threat", kind: "objective", label: "Boss threat: Hollow King stirring", x: 4100, z: 2620, discovered: true },
   { id: "survey-party", kind: "party", label: "Garden survey party", x: -900, z: 1840, discovered: true },
 ];
+const compassHudItem: CanvasItem = { id: "hud-compass", type: "map", name: "Wayfinder Compass", w: 2, h: 2, icon: "target", note: "Toggle compass", loc: { kind: "limbo" } };
 
-function CompassBar({ player, markers }: { player: HudMapPosition; markers: HudMapMarker[] }) {
+function CompassBar({ player, markers, onCollapse }: { player: HudMapPosition; markers: HudMapMarker[]; onCollapse: () => void }) {
   const [heading, setHeading] = useState(0);
   const [face, setFace] = useState("+Y");
   const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -108,7 +109,7 @@ function CompassBar({ player, markers }: { player: HudMapPosition; markers: HudM
   const markerIcon = (kind: HudMapMarker["kind"]) => kind === "objective" ? "target" : kind === "keep" ? "castle" : kind === "gate" ? "keyhole" : "person";
 
   return (
-    <section className="atlas-compass" aria-label="Compass and experience">
+    <button type="button" className="atlas-compass" aria-label="Collapse compass to its item slot" onClick={onCollapse}>
       <div className="atlas-compass-tape">{tape.map((direction, index) => <span key={`${direction}-${index}`} className={index === 3 ? "is-center" : ""}>{direction}</span>)}</div>
       <div className="atlas-compass-rule">
         <i className="atlas-compass-heading" />
@@ -126,7 +127,7 @@ function CompassBar({ player, markers }: { player: HudMapPosition; markers: HudM
       </div>
       <div className="atlas-compass-readout"><span>{face}</span><strong>{Math.round(heading).toString().padStart(3, "0")}°</strong></div>
       <div className="atlas-xp-row"><span>Lv 04</span><AtlasProgress value={50} tone="accent" label="Experience" /><strong>4,250 / 8,500 XP</strong></div>
-    </section>
+    </button>
   );
 }
 
@@ -331,29 +332,28 @@ function BagGrid({ bag, items, draggedItemId, onDragStart, onDragEnd, onDropGrid
 }
 
 function StashPanel({ bag, items, capacity, draggedItemId, onDragStart, onDragEnd, onDropGrid, onClick, onContextMenu, onClose }: { bag: CanvasItem; items: CanvasItem[]; capacity: number; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onDropGrid: (event: DragEvent<HTMLDivElement>, x: number, y: number) => void; onClick: (item: CanvasItem) => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slotKind: string) => void; onClose: () => void }) {
+  const spiritBox = bag.id === "spiritBox1";
   return (
-    <AtlasOverlay className="atlas-stash-overlay" onClose={onClose}>
-      <section className="atlas-panel atlas-inventory-panel atlas-stash-panel" role="dialog" aria-modal="true" aria-label={`${bag.name} stash`}>
+    <section className={`atlas-panel atlas-inventory-panel atlas-stash-panel prototype-floating-panel${spiritBox ? " prototype-spirit-panel" : ""}`} role="dialog" aria-modal="false" aria-label={spiritBox ? "Spirit of Life" : `${bag.name} stash`}>
         <header className="atlas-panel-header atlas-stash-header">
-          <div><span className="atlas-eyebrow">Personal inventory</span><h2>Stash</h2><small>{bag.name} · drag items to arrange them</small></div>
+          <div><span className="atlas-eyebrow">{spiritBox ? "Characters" : "Personal inventory"}</span><h2>{spiritBox ? "Spirit of Life" : "Stash"}</h2><small>{spiritBox ? "Choose the character bound to this Spirit." : `${bag.name} · drag items to arrange them`}</small></div>
           <button type="button" className="atlas-close" onClick={onClose} aria-label="Close stash"><AtlasIcon name="x" size={1.1} /></button>
         </header>
-        <nav className="atlas-stash-tabs" aria-label="Stash locations">
+        {!spiritBox ? <nav className="atlas-stash-tabs" aria-label="Stash locations">
           <button type="button" className="is-active" aria-current="page">Personal</button>
           <button type="button" disabled>Shared I</button>
           <button type="button" disabled>Shared II</button>
           <button type="button" disabled>Shared III</button>
-        </nav>
+        </nav> : null}
         <div className="atlas-inventory-toolbar">
-          <div><strong>{items.length} items secured</strong><span>Drag to move · right-click for actions · nested bags retain their contents</span></div>
-          <span>{capacity} / 20 capacity</span>
+          <div><strong>{spiritBox ? `${items.length} characters available` : `${items.length} items secured`}</strong><span>{spiritBox ? "Select a character to inspect their field loadout." : "Drag to move · right-click for actions · nested bags retain their contents"}</span></div>
+          <span>{spiritBox ? "Spirit linked" : `${capacity} / 20 capacity`}</span>
         </div>
         <div className="atlas-bag-grid-wrap atlas-stash-grid-wrap">
           <BagGrid bag={{ ...bag, grid: bag.grid ?? { cols: 6, rows: 4 } }} items={items} draggedItemId={draggedItemId} onDragStart={onDragStart} onDragEnd={onDragEnd} onDropGrid={onDropGrid} onClick={onClick} onContextMenu={onContextMenu} />
         </div>
-        <footer className="atlas-stash-footer"><span><AtlasIcon name="backpack" size={0.8} /> Personal vault</span><small>Esc closes · gold cells show the active container footprint</small></footer>
-      </section>
-    </AtlasOverlay>
+        <footer className="atlas-stash-footer"><span><AtlasIcon name={spiritBox ? "spirit" : "backpack"} size={0.8} /> {spiritBox ? "Spirit of Life" : "Personal vault"}</span><small>Esc closes · gold cells show the active container footprint</small></footer>
+    </section>
   );
 }
 
@@ -516,7 +516,9 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const logSequence = useRef(initialLogs.length);
   const [openPanel, setOpenPanel] = useState<OpenPanel | null>(null);
   const [openBagId, setOpenBagId] = useState<string | null>(null);
+  const [spiritOpen, setSpiritOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [compassOpen, setCompassOpen] = useState(true);
   const [loggedIn, setLoggedIn] = useState<"User" | "Admin" | null>("User");
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -918,9 +920,9 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     if (!item) return;
     if (item.type === "kingdom") setPanel("login");
     else if (item.type === "account") setPanel("account");
-    else if (item.type === "spirit") { setPanel(null); setOpenBagId((current) => current === "spiritBox1" ? null : "spiritBox1"); }
+    else if (item.type === "spirit") setSpiritOpen((current) => !current);
     else if (item.type === "character") setPanel("equipment");
-    else if (item.type === "bag") { setPanel(null); setOpenBagId((current) => current === item.id ? null : item.id); }
+    else if (item.type === "bag") setOpenBagId((current) => current === item.id ? null : item.id);
     else if (item.type === "tome") setPanel("tome");
     else if (item.type === "map") { setOpenPanel(null); setOpenBagId(null); setMapOpen(true); }
     else if (item.type === "settings") window.location.assign("/dashboard");
@@ -960,12 +962,15 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     <div className={`hud-root atlas-hud prototype-hud${poweringDown ? " atlas-hud-powering-down" : ""}`} aria-busy={poweringDown} onContextMenu={(event) => { event.preventDefault(); setContextMenu(null); }}>
       <header className="atlas-topbar prototype-hud__top">
         <div className="atlas-utility-group prototype-hud__designer"><div className="atlas-settings-slot">{renderSlot("settings", "Dashboard", hudItem("settings"), "utility", "Esc")}</div></div>
-        <CompassBar player={mapPosition} markers={defaultMapMarkers} />
+        {compassOpen
+          ? <CompassBar player={mapPosition} markers={defaultMapMarkers} onCollapse={() => setCompassOpen(false)} />
+          : <div className="prototype-hud__compass-slot"><AtlasItemSlot item={compassHudItem} label="Compass" size="utility" hotkey="N" onClick={() => setCompassOpen(true)} /></div>}
         <div className="prototype-hud__spirit">{renderSlot("spirit", "Spirit", hudItem("spirit"), "utility", "P")}</div>
       </header>
 
       <aside className="prototype-hud__backpack" aria-label="Backpack loadout">
         {renderSlot("backpack", "Backpack", backpack, "utility", "B")}
+        {renderSlot("lunchbox", "Lunchbox", lunchbox, "utility", "L")}
       </aside>
 
       <section className="prototype-hud__vitals" aria-label="Player and spirit status">
@@ -974,11 +979,10 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
       </section>
 
       <section className="prototype-hud__character-loadout" aria-label="Lunchbox, agility, and map">
-        {renderSlot("lunchbox", "Lunchbox", lunchbox, "utility", "L")}
+        {mapSlot}
         <div className="atlas-mini-ability-group prototype-hud__agility" role="group" aria-label="Agility skills">
           {movementAbilities.filter((ability) => ability.id !== "movement-dodge").map((ability) => { const index = movementAbilities.findIndex((candidate) => candidate.id === ability.id); return <AtlasItemSlot key={ability.id} item={ability} label={ability.name} size="micro" hotkey={movementAbilityHotkeys[index]} />; })}
         </div>
-        {mapSlot}
       </section>
 
       <section className="prototype-hud__creature" aria-label="Character slot">
@@ -1002,7 +1006,8 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
 
       <nav className="atlas-actionbar prototype-hud__actionbar" aria-label="Action bar">{actionSlots.map((item, index) => renderSlot(`action${index}`, `Action ${index + 1}`, item, "action", String(index + 1)))}</nav>
 
-      {openBagId && items[openBagId] ? <StashPanel bag={items[openBagId]} items={gridItems(openBagId)} capacity={bagSlotCount} draggedItemId={draggedItemId} onDragStart={(item) => { setDraggedItemId(item.id); setDropTarget(`grid:${openBagId}`); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDropGrid={(event, x, y) => handleGridDrop(event, x, y)} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setOpenBagId(null)} /> : null}
+      {openBagId && items[openBagId] ? <StashPanel bag={items[openBagId]} items={openBagId === "spiritBox1" ? allItems.filter((item) => item.type === "character").map((item, index) => ({ ...item, loc: { kind: "grid", bagId: "spiritBox1", x: index % 4, y: Math.floor(index / 4) } })) : gridItems(openBagId)} capacity={bagSlotCount} draggedItemId={draggedItemId} onDragStart={(item) => { setDraggedItemId(item.id); setDropTarget(`grid:${openBagId}`); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDropGrid={(event, x, y) => handleGridDrop(event, x, y)} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setOpenBagId(null)} /> : null}
+      {spiritOpen ? <StashPanel bag={items.spiritBox1} items={allItems.filter((item) => item.type === "character").map((item, index) => ({ ...item, loc: { kind: "grid", bagId: "spiritBox1", x: index % 4, y: Math.floor(index / 4) } }))} capacity={4} draggedItemId={draggedItemId} onDragStart={(item) => setDraggedItemId(item.id)} onDragEnd={() => setDraggedItemId(null)} onDropGrid={(event) => event.preventDefault()} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setSpiritOpen(false)} /> : null}
 
       {openPanel === "login" ? <LoginPanel onLogin={loginAs} onClose={() => setPanel(null)} /> : null}
       {openPanel === "account" ? <AccountPanel loggedIn={loggedIn} onSignOut={signOut} onClose={() => setPanel(null)} /> : null}

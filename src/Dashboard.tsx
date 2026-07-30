@@ -30,6 +30,7 @@ export function Dashboard({ projection, onBack, onLogout }: Readonly<{ projectio
   const navigate = (next: Page) => { const url = new URL(window.location.href); url.searchParams.set("page", next); window.history.pushState({}, "", url); setPage(next); };
   const entry = groups.flatMap((group) => group.entries).find((candidate) => candidate.page === page);
   const managerKinds: readonly ManagerKind[] = ["users", "roles", "groups", "skills", "stats", "materia"];
+  const gameSettingsPages: readonly Page[] = ["gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "display", "audio"];
 
   return <main className={`dashboard-page app-page ${railVisible ? "dashboard-rail-visible" : "dashboard-rail-hidden"}`} aria-label="Knowhere Dashboard">
     <aside className="dashboard-sidebar"><header><div className="dashboard-sidebar-topline"><button className="dashboard-back-link" type="button" onClick={onBack}>← Back to Game</button><button className="kh-button kh-button-ghost dashboard-rail-toggle" type="button" onClick={() => setRailVisible(false)}>◀</button></div><button className="dashboard-brand" type="button" onClick={() => navigate("profile")}><b>Knowhere</b><span>the Kingdom</span></button></header>
@@ -38,6 +39,12 @@ export function Dashboard({ projection, onBack, onLogout }: Readonly<{ projectio
     </aside>
     {!railVisible ? <button className="dashboard-rail-reveal" type="button" onClick={() => setRailVisible(true)}>☰ <span>Show navigation</span></button> : null}
     <section className="dashboard-content">
+      {gameSettingsPages.includes(page) ? <nav className="dashboard-prototype-tabs" aria-label="Game settings categories">
+        <button type="button" className={page === "gameplay" ? "active" : ""} onClick={() => navigate("gameplay")}>Game</button>
+        <button type="button" className={page.startsWith("controls-") ? "active" : ""} onClick={() => navigate("controls-actions")}>Controls</button>
+        <button type="button" className={page === "display" ? "active" : ""} onClick={() => navigate("display")}>Display</button>
+        <button type="button" className={page === "audio" ? "active" : ""} onClick={() => navigate("audio")}>Audio</button>
+      </nav> : null}
       {!entry?.available ? <article className="dashboard-card"><span>Visible · unavailable</span><h1>{entry?.label}</h1><p>This legacy workspace is preserved exactly in navigation, but its mutations remain disabled until an owning service publishes the required audited API.</p><div className="dashboard-placeholder">No browser or local-storage authority is substituted.</div></article>
         : managerKinds.includes(page as ManagerKind) ? <ManagerPage kind={page as ManagerKind} onBack={() => navigate("admin")} />
         : page === "admin" ? <ManagerOverview onPreview={(kind) => navigate(kind)} />
