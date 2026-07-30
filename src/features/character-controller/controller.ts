@@ -23,6 +23,7 @@ const actionSlots: Readonly<Partial<Record<CharacterActionId, AbilitySlot>>> = {
   "actionbar-7": "actionbar.7",
   "actionbar-8": "actionbar.8",
   "actionbar-9": "actionbar.9",
+  "actionbar-10": "actionbar.10",
 };
 
 const actionAliases: Readonly<Record<string, CharacterActionId>> = {
@@ -106,6 +107,7 @@ export class CharacterController {
   private pendingJump = false;
   private gamepadMove = { forward: 0, right: 0 };
   private gamepadLook = { yaw: 0, pitch: 0 };
+  private pendingPointerAction: Readonly<{ button: number; slot: AbilitySlot }> | null = null;
 
   constructor() {
     Object.entries(defaultKeys).forEach(([key, action]) => this.keyActions.set(key, action));
@@ -144,7 +146,9 @@ export class CharacterController {
       for (const value of [binding.primary, binding.secondary]) {
         const mouse = /^Mouse (\d+)$/.exec(value);
         if (mouse) {
-          this.pointerActions.set(Number(mouse[1]) - 1, action);
+          const ordinal = Number(mouse[1]);
+          const button = ordinal === 1 ? 0 : ordinal === 2 ? 2 : ordinal === 3 ? 1 : ordinal - 1;
+          this.pointerActions.set(button, action);
           continue;
         }
         if (value === "Unbound" || value === "Hardcoded" || value.startsWith("Double-tap") || value.startsWith("Mouse")) continue;
@@ -192,7 +196,22 @@ export class CharacterController {
     const slot = action ? actionSlots[action] : undefined;
     if (!slot) return;
     event.preventDefault();
+    if (action === "right-hand") {
+      this.pendingPointerAction = { button: event.button, slot };
+      return;
+    }
     this.activateSlot(slot, performance.now(), "press");
+  }
+
+  handlePointerUp(event: MouseEvent) {
+    const pending = this.pendingPointerAction;
+    if (!pending || pending.button !== event.button) return;
+    this.pendingPointerAction = null;
+    this.activateSlot(pending.slot, performance.now(), "press");
+  }
+
+  cancelPendingPointerAction() {
+    this.pendingPointerAction = null;
   }
 
   handleLookInput(deltaX: number, deltaY: number, viewportWidth: number, viewportHeight: number) {
@@ -254,6 +273,7 @@ export class CharacterController {
     this.gamepadLook = { yaw: 0, pitch: 0 };
     this.lookIntent = { yaw: 0, pitch: 0 };
     this.pendingJump = false;
+    this.pendingPointerAction = null;
     this.sprintCharge = 0;
     this.patch({
       movementMode: this.state.flags.flying ? "flight" : this.state.flags.grounded ? "idle" : "airborne",

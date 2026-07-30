@@ -168,7 +168,7 @@ export function createItemAbilityContracts(item: CanvasItem | undefined, source:
 
 export function createActionbarItemAbilityContracts(items: readonly (CanvasItem | undefined)[], sources: readonly PublishedItemDefinition[]): SkillRuntimeContract[] {
   return items.flatMap((item, index) => {
-    if (!item || index >= 9) return [];
+    if (!item || index >= 10) return [];
     const slot = `actionbar.${index + 1}` as AbilitySlot;
     const source = findPublishedItemDefinition(item, sources);
     if (source) return createItemActionContract(item, "leftClick", source.document.actions.leftClick, source, slot);
@@ -209,7 +209,7 @@ const validStates = new Set(["idle", "locomotion", "sprint", "dodge", "jump", "a
 export function parsePublishedSkill(record: DefinitionWithRevision): SkillRuntimeContract | null {
   const payload = record.revision.payload;
   const slot = payload.slot;
-  const validSlot = typeof slot === "string" && /^(movement\.(sprint|dodge|jump|crouch|flight)|tome\.(ultimate|action1|action2)|item\.(leftHand|rightHand)|actionbar\.[1-9])$/.test(slot);
+  const validSlot = typeof slot === "string" && /^(movement\.(sprint|dodge|jump|crouch|flight)|tome\.(ultimate|action1|action2)|item\.(leftHand|rightHand)|actionbar\.(?:[1-9]|10))$/.test(slot);
   if (!validSlot) return null;
   const timing = isRecord(payload.timing) ? payload.timing : {};
   const chargesPayload = isRecord(payload.charges) ? payload.charges : null;

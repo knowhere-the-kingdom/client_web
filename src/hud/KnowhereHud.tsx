@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import demoSkills from "../data/demo-skills.json";
-import { initialBindings, initialCanvasItems, initialLogs } from "./demoData";
+import { initialCanvasItems, initialLogs, loadControlBindings, saveControlBindings } from "./demoData";
 import { CHARACTER_BLOCK_FACE_TARGET_PRESENTATION_EVENT, createActionbarItemAbilityContracts, createDemoSkillContracts, createItemAbilityContracts, findPublishedItemDefinition, characterController, gameplayMouseMode, useCharacterControllerState } from "../features/character-controller";
 import type { AbilitySlot, CharacterBlockFaceTargetPresentationEventDetail, CharacterBlockFaceTargetPromptKind, CharacterRenderEvent, PublishedItemDefinition, SkillRuntimeContract } from "../features/character-controller";
 import { AtlasCooldown, AtlasIcon, AtlasItemIcon, AtlasItemSlot, AtlasPanel, AtlasProgress } from "./AtlasPrimitives";
@@ -80,9 +80,34 @@ const defaultMapMarkers: HudMapMarker[] = [
 ];
 const compassHudItem: CanvasItem = { id: "hud-compass", type: "map", name: "Wayfinder Compass", w: 2, h: 2, icon: "target", note: "Toggle compass", loc: { kind: "limbo" } };
 const awarenessHudItem: CanvasItem = { id: "hud-awareness", type: "key", name: "Awareness", w: 2, h: 2, icon: "key", note: "Opens the Designer dashboard", loc: { kind: "limbo" } };
+const actionSlotName = (loadout: number, index: number) => loadout === 0 ? `action${index}` : `action-loadout-${loadout + 1}-${index}`;
 
-function DesignerAwarenessSlot({ disabled, onLogout }: { disabled: boolean; onLogout: () => void }) {
+export function DesignerAwarenessSlot({ disabled, onActivate, onLogout }: { disabled: boolean; onActivate?: () => void; onLogout: () => void }) {
   const returnedToDesigner = useRef(false);
+  const draggingAwareness = useRef(false);
+
+  useEffect(() => {
+    const allowAwarenessDrop = (event: globalThis.DragEvent) => {
+      if (!draggingAwareness.current) return;
+      event.preventDefault();
+      event.dataTransfer!.dropEffect = "move";
+    };
+    const finishAwarenessDrop = (event: globalThis.DragEvent) => {
+      if (!draggingAwareness.current) return;
+      event.preventDefault();
+      const returned = returnedToDesigner.current;
+      draggingAwareness.current = false;
+      returnedToDesigner.current = false;
+      if (!returned && !disabled) onLogout();
+    };
+    window.addEventListener("dragover", allowAwarenessDrop);
+    window.addEventListener("drop", finishAwarenessDrop);
+    return () => {
+      window.removeEventListener("dragover", allowAwarenessDrop);
+      window.removeEventListener("drop", finishAwarenessDrop);
+    };
+  }, [disabled, onLogout]);
+
   return (
     <div className="prototype-designer-access" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); returnedToDesigner.current = true; }}>
       <AtlasItemSlot
@@ -90,9 +115,14 @@ function DesignerAwarenessSlot({ disabled, onLogout }: { disabled: boolean; onLo
         label="Designer"
         size="utility"
         className="prototype-designer-access__slot"
-        onClick={() => window.location.assign("/dashboard")}
-        onDragStart={() => { returnedToDesigner.current = false; }}
-        onDragEnd={() => { window.setTimeout(() => { if (!returnedToDesigner.current && !disabled) onLogout(); }, 0); }}
+        onClick={onActivate}
+        onDragStart={() => { returnedToDesigner.current = false; draggingAwareness.current = true; }}
+        onDragEnd={() => {
+          const droppedOutsideViewport = draggingAwareness.current;
+          draggingAwareness.current = false;
+          returnedToDesigner.current = false;
+          if (droppedOutsideViewport && !disabled) onLogout();
+        }}
       />
       <span>Designer</span>
     </div>
@@ -357,26 +387,27 @@ function BagGrid({ bag, items, draggedItemId, onDragStart, onDragEnd, onDropGrid
 
 function StashPanel({ bag, items, capacity, draggedItemId, onDragStart, onDragEnd, onDropGrid, onClick, onContextMenu, onClose }: { bag: CanvasItem; items: CanvasItem[]; capacity: number; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onDropGrid: (event: DragEvent<HTMLDivElement>, x: number, y: number) => void; onClick: (item: CanvasItem) => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slotKind: string) => void; onClose: () => void }) {
   const spiritBox = bag.id === "spiritBox1";
+  const canonicalStash = bag.id === "stashVault";
   return (
-    <section className={`atlas-panel atlas-inventory-panel atlas-stash-panel prototype-floating-panel${spiritBox ? " prototype-spirit-panel" : ""}`} role="dialog" aria-modal="false" aria-label={spiritBox ? "Spirit of Life" : `${bag.name} stash`}>
+    <section className={`atlas-panel atlas-inventory-panel atlas-stash-panel prototype-floating-panel${spiritBox ? " prototype-spirit-panel" : ""}${canonicalStash ? " prototype-stash-panel--canonical" : ""}`} role="dialog" aria-modal="false" aria-label={spiritBox ? "Spirit of Life" : canonicalStash ? "Stash" : `${bag.name} stash`}>
         <header className="atlas-panel-header atlas-stash-header">
-          <div><span className="atlas-eyebrow">{spiritBox ? "Characters" : "Personal inventory"}</span><h2>{spiritBox ? "Spirit of Life" : "Stash"}</h2><small>{spiritBox ? "Choose the character bound to this Spirit." : `${bag.name} · drag items to arrange them`}</small></div>
+          <div>{canonicalStash ? null : <span className="atlas-eyebrow">{spiritBox ? "Characters" : "Personal inventory"}</span>}<h2>{spiritBox ? "Spirit of Life" : "Stash"}</h2>{canonicalStash ? null : <small>{spiritBox ? "Choose the character bound to this Spirit." : `${bag.name} · drag items to arrange them`}</small>}</div>
           <button type="button" className="atlas-close" onClick={onClose} aria-label="Close stash"><AtlasIcon name="x" size={1.1} /></button>
         </header>
-        {!spiritBox ? <nav className="atlas-stash-tabs" aria-label="Stash locations">
+        {!spiritBox && !canonicalStash ? <nav className="atlas-stash-tabs" aria-label="Stash locations">
           <button type="button" className="is-active" aria-current="page">Personal</button>
           <button type="button" disabled>Shared I</button>
           <button type="button" disabled>Shared II</button>
           <button type="button" disabled>Shared III</button>
         </nav> : null}
-        <div className="atlas-inventory-toolbar">
+        {!canonicalStash ? <div className="atlas-inventory-toolbar">
           <div><strong>{spiritBox ? `${items.length} characters available` : `${items.length} items secured`}</strong><span>{spiritBox ? "Select a character to inspect their field loadout." : "Drag to move · right-click for actions · nested bags retain their contents"}</span></div>
           <span>{spiritBox ? "Spirit linked" : `${capacity} / 20 capacity`}</span>
-        </div>
+        </div> : null}
         <div className="atlas-bag-grid-wrap atlas-stash-grid-wrap">
           <BagGrid bag={{ ...bag, grid: bag.grid ?? { cols: 6, rows: 4 } }} items={items} draggedItemId={draggedItemId} onDragStart={onDragStart} onDragEnd={onDragEnd} onDropGrid={onDropGrid} onClick={onClick} onContextMenu={onContextMenu} />
         </div>
-        <footer className="atlas-stash-footer"><span><AtlasIcon name={spiritBox ? "spirit" : "backpack"} size={0.8} /> {spiritBox ? "Spirit of Life" : "Personal vault"}</span><small>Esc closes · gold cells show the active container footprint</small></footer>
+        {canonicalStash ? null : <footer className="atlas-stash-footer"><span><AtlasIcon name={spiritBox ? "spirit" : "backpack"} size={0.8} /> {spiritBox ? "Spirit of Life" : "Personal vault"}</span><small>Esc closes · gold cells show the active container footprint</small></footer>}
     </section>
   );
 }
@@ -449,16 +480,16 @@ function locationsOverlap(a: { x: number; y: number; w: number; h: number }, b: 
   return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
 }
 
-export type KnowhereHudProps = Readonly<{ accountLabel: string; projection?: WorldHudProjectionV2 | null; poweringDown?: boolean; onInventoryMove?: (itemInstanceId:string,destination:CanvasItemLocation,expectedRevision:number)=>Promise<WorldHudProjectionV2|null>; onLogout: () => void }>;
+export type KnowhereHudProps = Readonly<{ accountLabel: string; projection?: WorldHudProjectionV2 | null; poweringDown?: boolean; onInventoryMove?: (itemInstanceId:string,destination:CanvasItemLocation,expectedRevision:number)=>Promise<WorldHudProjectionV2|null>; onOpenDashboard: () => void; onLogout: () => void }>;
 
-export function KnowhereHud({ accountLabel, projection = null, poweringDown = false, onInventoryMove, onLogout }: KnowhereHudProps) {
+export function KnowhereHud({ accountLabel, projection = null, poweringDown = false, onInventoryMove, onOpenDashboard, onLogout }: KnowhereHudProps) {
   const [items, setItems] = useState<Record<string, CanvasItem>>(() => ({
     ...initialCanvasItems,
     kingdom: { ...initialCanvasItems.kingdom, loc: { kind: "limbo" } },
     acctUser: { ...initialCanvasItems.acctUser, name: accountLabel, loc: { kind: "hud", slot: "account" } },
   }));
   const [logs, setLogs] = useState<HudLogEntry[]>(initialLogs);
-  const [bindings, setBindings] = useState<SettingsBinding[]>(initialBindings);
+  const [bindings, setBindings] = useState<SettingsBinding[]>(loadControlBindings);
   const controllerState = useCharacterControllerState();
   const previousMeters = useRef({ health: controllerState.health.current, spirit: controllerState.resources.spirit.current });
   const previousLifecycle = useRef(controllerState.lifecycle);
@@ -472,7 +503,10 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [rejectedDropTarget, setRejectedDropTarget] = useState<string | null>(null);
-  const [selectedAction, setSelectedAction] = useState(0);
+  const [activeLoadout, setActiveLoadout] = useState(0);
+  const [leftSelections, setLeftSelections] = useState([0, 0, 0]);
+  const [rightSelections, setRightSelections] = useState([0, 0, 0]);
+  const rightMouseHeld = useRef(false);
   const [abilityClock, setAbilityClock] = useState(() => performance.now());
   const [publishedSkills] = useState<SkillRuntimeContract[]>([]);
   const [publishedItems] = useState<PublishedItemDefinition[]>([]);
@@ -480,7 +514,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const [crosshairPresentation, setCrosshairPresentation] = useState<CrosshairPresentation>(defaultCrosshairPresentation);
   const [mapPosition, setMapPosition] = useState<HudMapPosition>(defaultMapPosition);
-  const [chatOpen, setChatOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
   const chatInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -490,13 +524,20 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const activeCharacter = hudItem("character");
   const mapItem = hudItem("map");
   const equipItem = (slot: string) => allItems.find((item) => item.loc.kind === "equip" && item.loc.charId === activeCharacter?.id && item.loc.slot === slot);
-  const actionSlots = useMemo(() => Array.from({ length: 12 }, (_, index) => hudItem(`action${index}`)), [allItems]);
-  const selectedHandItem = actionSlots[selectedAction];
-  const selectedItemDefinition = useMemo(() => findPublishedItemDefinition(selectedHandItem, publishedItems), [selectedHandItem?.id, selectedHandItem?.name, publishedItems]);
-  const itemAbilityContracts = useMemo(
-    () => createItemAbilityContracts(selectedHandItem, selectedItemDefinition),
-    [selectedHandItem?.id, selectedHandItem?.leftClickAction, selectedHandItem?.rightClickAction, selectedHandItem?.stats?.cooldown, selectedItemDefinition],
-  );
+  const actionPairCapacity = Math.max(1, Math.min(10, 5 + (equipItem("belt")?.stats?.actionSlotPairs ?? 0) + (equipItem("outfit")?.stats?.actionSlotPairs ?? 0)));
+  const oddActionIndices = useMemo(() => Array.from({ length: actionPairCapacity }, (_, index) => index * 2), [actionPairCapacity]);
+  const evenActionIndices = useMemo(() => Array.from({ length: actionPairCapacity }, (_, index) => index * 2 + 1), [actionPairCapacity]);
+  const actionSlots = useMemo(() => Array.from({ length: actionPairCapacity * 2 }, (_, index) => hudItem(actionSlotName(activeLoadout, index))), [actionPairCapacity, activeLoadout, allItems]);
+  const selectedLeftIndex = oddActionIndices[(leftSelections[activeLoadout] ?? 0) % actionPairCapacity];
+  const selectedRightIndex = evenActionIndices[(rightSelections[activeLoadout] ?? 0) % actionPairCapacity];
+  const selectedLeftItem = actionSlots[selectedLeftIndex];
+  const selectedRightItem = actionSlots[selectedRightIndex];
+  const selectedLeftDefinition = useMemo(() => findPublishedItemDefinition(selectedLeftItem, publishedItems), [selectedLeftItem?.id, selectedLeftItem?.name, publishedItems]);
+  const selectedRightDefinition = useMemo(() => findPublishedItemDefinition(selectedRightItem, publishedItems), [selectedRightItem?.id, selectedRightItem?.name, publishedItems]);
+  const itemAbilityContracts = useMemo(() => [
+    ...createItemAbilityContracts(selectedLeftItem, selectedLeftDefinition).filter((contract) => contract.slot === "item.leftHand"),
+    ...createItemAbilityContracts(selectedRightItem, selectedRightDefinition).filter((contract) => contract.slot === "item.rightHand"),
+  ], [selectedLeftDefinition, selectedLeftItem, selectedRightDefinition, selectedRightItem]);
   const actionbarItemAbilityContracts = useMemo(
     () => createActionbarItemAbilityContracts(actionSlots, publishedItems),
     [actionSlots, publishedItems],
@@ -514,7 +555,10 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
 
   const activateAction = (index: number) => {
     const item = actionSlots[index];
-    setSelectedAction(index);
+    const indices = index % 2 === 0 ? oddActionIndices : evenActionIndices;
+    const position = indices.indexOf(index);
+    const update = index % 2 === 0 ? setLeftSelections : setRightSelections;
+    update((current) => current.map((value, loadout) => loadout === activeLoadout ? Math.max(0, position) : value));
     if (!item) { appendLog("spirit", `Action ${index + 1} is empty`, "warning"); return; }
     if (controllerState.lifecycle !== "alive") { appendLog("spirit", `${item.name} unavailable while defeated`, "warning"); return; }
     const abilitySlot = `actionbar.${index + 1}` as AbilitySlot;
@@ -536,16 +580,17 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const activateHandAction = (side: "left" | "right") => {
     const slot: AbilitySlot = side === "left" ? "item.leftHand" : "item.rightHand";
     const label = side === "left" ? "Left Action" : "Right Action";
-    if (!selectedHandItem) {
+    const item = side === "left" ? selectedLeftItem : selectedRightItem;
+    if (!item) {
       appendLog("spirit", `${label} is empty`, "warning");
       return;
     }
     if (!characterController.activateSlot(slot)) {
-      appendLog("spirit", `${selectedHandItem.name} ${label.toLowerCase()} blocked`, "warning");
+      appendLog("spirit", `${item.name} ${label.toLowerCase()} blocked`, "warning");
     }
   };
 
-  const slotDisplayName = (slotKind: string) => slotKind.startsWith("action") ? `Action ${Number(slotKind.replace("action", "")) + 1}` : equipmentSlotLabels.get(slotKind) ?? slotKind.replace(/^./, (value) => value.toUpperCase());
+  const slotDisplayName = (slotKind: string) => slotKind.startsWith("action") ? `Action ${Number(/(\d+)$/.exec(slotKind)?.[1] ?? -1) + 1}` : equipmentSlotLabels.get(slotKind) ?? slotKind.replace(/^./, (value) => value.toUpperCase());
 
   const rejectDrop = (slotKind: string, itemName: string, reason: string) => {
     setRejectedDropTarget(slotKind);
@@ -557,7 +602,22 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
 
   useEffect(() => {
     characterController.configureBindings(bindings);
+    saveControlBindings(bindings);
   }, [bindings]);
+
+  useEffect(() => {
+    setCompassOpen(openPanel !== "equipment");
+  }, [openPanel]);
+
+  useEffect(() => {
+    const handleBindingsChanged = (event: Event) => {
+      const next = (event as CustomEvent<SettingsBinding[]>).detail;
+      if (!Array.isArray(next)) return;
+      setBindings((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next.map((binding) => ({ ...binding })));
+    };
+    window.addEventListener("knowhere:control-bindings-changed", handleBindingsChanged);
+    return () => window.removeEventListener("knowhere:control-bindings-changed", handleBindingsChanged);
+  }, []);
 
   useEffect(() => {
     if (!projection) return;
@@ -697,6 +757,48 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     };
   }, []);
 
+  const bindingUsesKey = (id: string, key: string) => {
+    const binding = bindings.find((candidate) => candidate.id === id);
+    const normalized = key.length === 1 ? key.toUpperCase() : key;
+    return [binding?.primary, binding?.secondary].some((value) => value === normalized);
+  };
+
+  const rotateActionSelection = (side: "left" | "right", direction: -1 | 1) => {
+    const update = side === "left" ? setLeftSelections : setRightSelections;
+    update((current) => current.map((position, loadout) => loadout === activeLoadout ? (position + direction + actionPairCapacity) % actionPairCapacity : position));
+  };
+
+  useEffect(() => {
+    const modifier = bindings.find((binding) => binding.id === "right-action-scroll-modifier");
+    const mouseOrdinal = Number(/Mouse (\d+)/.exec(modifier?.primary ?? "")?.[1] ?? 2);
+    const modifierButton = mouseOrdinal === 1 ? 0 : mouseOrdinal === 2 ? 2 : mouseOrdinal === 3 ? 1 : mouseOrdinal - 1;
+    const handleMouseDown = (event: globalThis.MouseEvent) => { if (event.button === modifierButton) rightMouseHeld.current = true; };
+    const handleMouseUp = (event: globalThis.MouseEvent) => { if (event.button === modifierButton) rightMouseHeld.current = false; };
+    const handleBlur = () => { rightMouseHeld.current = false; characterController.cancelPendingPointerAction(); };
+    const handleWheel = (event: WheelEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[role='dialog'],[role='menu'],.player-map-panel,.settings-panel")) return;
+      const directionBinding = event.deltaY < 0 ? "previous-action-slot" : "next-action-slot";
+      const expected = event.deltaY < 0 ? "Scroll Up" : "Scroll Down";
+      const binding = bindings.find((candidate) => candidate.id === directionBinding);
+      if (![binding?.primary, binding?.secondary].includes(expected)) return;
+      event.preventDefault();
+      characterController.cancelPendingPointerAction();
+      rotateActionSelection(rightMouseHeld.current ? "right" : "left", event.deltaY < 0 ? -1 : 1);
+    };
+    window.addEventListener("mousedown", handleMouseDown, { capture: true });
+    window.addEventListener("mouseup", handleMouseUp, { capture: true });
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener("mousedown", handleMouseDown, { capture: true });
+      window.removeEventListener("mouseup", handleMouseUp, { capture: true });
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("wheel", handleWheel);
+      rightMouseHeld.current = false;
+    };
+  }, [actionPairCapacity, activeLoadout, bindings]);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -707,11 +809,20 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
       if (import.meta.env.DEV && event.key === "'") { event.preventDefault(); characterController.restoreSpirit(10); return; }
       if (import.meta.env.DEV && event.key === "\\") { event.preventDefault(); characterController.damage(controllerState.health.maximum); return; }
       if (import.meta.env.DEV && event.key === "=") { event.preventDefault(); characterController.respawn(); return; }
-      if (import.meta.env.DEV && event.key === ",") { event.preventDefault(); rejectDrop("food", actionSlots[selectedAction]?.name ?? "Selected item", "development rejection test"); return; }
-      if (event.key >= "1" && event.key <= "9") {
+      if (import.meta.env.DEV && event.key === ",") { event.preventDefault(); rejectDrop("food", selectedLeftItem?.name ?? "Selected item", "development rejection test"); return; }
+      const directAction = bindings.find((binding) => /^actionbar-(?:[1-9]|10)$/.test(binding.id) && [binding.primary, binding.secondary].some((value) => value.toLowerCase() === event.key.toLowerCase()));
+      if (directAction) {
         event.preventDefault();
-        activateAction(Number(event.key) - 1);
+        activateAction(Number(directAction.id.replace("actionbar-", "")) - 1);
+        return;
       }
+      if (bindingUsesKey("swap", event.key)) {
+        event.preventDefault();
+        setActiveLoadout((current) => (current + 1) % 3);
+        return;
+      }
+      if (bindingUsesKey("previous-action-slot", event.key)) { event.preventDefault(); rotateActionSelection("left", -1); return; }
+      if (bindingUsesKey("next-action-slot", event.key)) { event.preventDefault(); rotateActionSelection("left", 1); return; }
       const chatBinding = bindings.find((binding) => binding.id === "open-chat");
       const chatKeys = [chatBinding?.primary, chatBinding?.secondary]
         .filter((value): value is string => Boolean(value) && value !== "Unbound")
@@ -751,7 +862,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [backpack, bindings, controllerState.health.maximum, controllerState.lifecycle, items, lunchbox, mapItem, selectedAction]);
+  }, [actionPairCapacity, activeLoadout, backpack, bindings, controllerState.health.maximum, controllerState.lifecycle, items, lunchbox, mapItem, selectedLeftItem]);
 
   useEffect(() => {
     const handleTab = (event: KeyboardEvent) => {
@@ -805,7 +916,16 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     if (x !== contextMenu.x || y !== contextMenu.y) setContextMenu((current) => current ? { ...current, x, y } : current);
   }, [contextMenu]);
 
-  const setPanel = (panel: OpenPanel | null) => { setMapOpen(false); setOpenBagId(null); setOpenPanel(panel); };
+  const setPanel = (panel: OpenPanel | null) => {
+    setMapOpen(false);
+    setOpenBagId(null);
+    setCompassOpen(panel !== "equipment");
+    if (panel === "equipment") {
+      gameplayMouseMode.cancelFreeDrag();
+      if (document.pointerLockElement) document.exitPointerLock();
+    }
+    setOpenPanel(panel);
+  };
 
   const loginAs = (name: "User" | "Admin") => {
     setItems((current) => ({ ...current, kingdom: { ...current.kingdom, loc: { kind: "limbo" } }, acctUser: { ...current.acctUser, loc: name === "User" ? { kind: "hud", slot: "account" } : { kind: "limbo" } }, acctAdmin: { ...current.acctAdmin, loc: name === "Admin" ? { kind: "hud", slot: "account" } : { kind: "limbo" } } }));
@@ -891,6 +1011,20 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     setContextMenu({ item, slotKind, x: event.clientX, y: event.clientY });
   };
 
+  const equipItemForActionSide = async (item: CanvasItem, side: "left" | "right") => {
+    if (!isCompatible(item, "action0")) {
+      rejectDrop("action0", item.name, "item has no usable action");
+      setContextMenu(null);
+      return;
+    }
+    const index = side === "left" ? selectedLeftIndex : selectedRightIndex;
+    const destination: CanvasItemLocation = { kind: "hud", slot: actionSlotName(activeLoadout, index) };
+    if (await moveItem(item.id, destination)) {
+      appendLog("player", `${item.name} equipped for ${side === "left" ? "left click" : "right click"} in loadout ${activeLoadout + 1}`, "gain");
+    }
+    setContextMenu(null);
+  };
+
   const compatibleItems = (slotKind: string) => allItems.filter((item) => item.loc.kind === "grid" && isCompatible(item, slotKind)).slice(0, 6);
 
   const openItem = (item?: CanvasItem) => {
@@ -915,8 +1049,8 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     if (slotKind === "tome-action-1") return "tome.action1";
     if (slotKind === "tome-action-2") return "tome.action2";
     if (slotKind.startsWith("action")) {
-      const index = Number(slotKind.slice("action".length)) + 1;
-      if (index >= 1 && index <= 9) return `actionbar.${index}` as AbilitySlot;
+      const index = Number(/(\d+)$/.exec(slotKind)?.[1] ?? -1) + 1;
+      if (index >= 1 && index <= 10) return `actionbar.${index}` as AbilitySlot;
     }
     return null;
   };
@@ -932,14 +1066,18 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     const dropState: DropState = rejectedDropTarget === slotKind ? "invalid" : draggedItemId && dropTarget === slotKind ? (isCompatible(items[draggedItemId], slotKind) ? "valid" : "invalid") : undefined;
     const abilitySlot = abilitySlotForHud(slotKind);
     const displayedItem = item && abilitySlot ? withAbilityCooldown(item, abilitySlot) : item;
-    return <AtlasItemSlot key={slotKind} item={displayedItem} label={label} size={size} hotkey={hotkey} className={className} selected={slotKind.startsWith("action") && Number(slotKind.replace("action", "")) === selectedAction} dropState={dropState} onClick={() => { if (slotKind.startsWith("action")) activateAction(Number(slotKind.replace("action", ""))); else openItem(item); }} onContextMenu={(event) => item && openItemContextMenu(event, item, slotKind)} onDragStart={(dragItem) => { setDraggedItemId(dragItem.id); setDropTarget(slotKind); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDragOver={() => setDropTarget(slotKind)} onDrop={(event) => handleFixedDrop(event, slotKind)} />;
+    const actionIndex = slotKind.startsWith("action") ? Number(/(\d+)$/.exec(slotKind)?.[1] ?? -1) : -1;
+    const actionSelected = actionIndex === selectedLeftIndex || actionIndex === selectedRightIndex;
+    return <AtlasItemSlot key={slotKind} item={displayedItem} label={label} size={size} hotkey={hotkey} className={className} selected={actionSelected} dropState={dropState} onClick={() => { if (actionIndex >= 0) activateAction(actionIndex); else openItem(item); }} onContextMenu={(event) => item && openItemContextMenu(event, item, slotKind)} onDragStart={(dragItem) => { setDraggedItemId(dragItem.id); setDropTarget(slotKind); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDragOver={() => setDropTarget(slotKind)} onDrop={(event) => handleFixedDrop(event, slotKind)} />;
   };
 
   return (
     <div className={`hud-root atlas-hud prototype-hud${poweringDown ? " atlas-hud-powering-down" : ""}`} aria-busy={poweringDown} onContextMenu={(event) => { event.preventDefault(); setContextMenu(null); }}>
       <header className="atlas-topbar prototype-hud__top">
-        <div className="atlas-utility-group prototype-hud__designer"><DesignerAwarenessSlot disabled={poweringDown} onLogout={onLogout} /></div>
-        {compassOpen
+        <div className="atlas-utility-group prototype-hud__designer"><DesignerAwarenessSlot disabled={poweringDown} onActivate={onOpenDashboard} onLogout={onLogout} /></div>
+        {openPanel === "equipment"
+          ? <div className="prototype-hud__compass-slot prototype-hud__compass-slot--equipment"><AtlasItemSlot item={compassHudItem} label="Compass" size="utility" hotkey="N" /></div>
+          : compassOpen
           ? <CompassBar player={mapPosition} markers={defaultMapMarkers} onCollapse={() => setCompassOpen(false)} />
           : <div className="prototype-hud__compass-slot"><AtlasItemSlot item={compassHudItem} label="Compass" size="utility" hotkey="N" onClick={() => setCompassOpen(true)} /></div>}
         <div className="prototype-hud__spirit">{renderSlot("spirit", "Spirit", hudItem("spirit"), "utility", "P")}</div>
@@ -949,11 +1087,6 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         {renderSlot("backpack", "Backpack", backpack, "utility", "B")}
         {renderSlot("lunchbox", "Lunchbox", lunchbox, "utility", "L")}
       </aside>
-
-      <section className="prototype-hud__vitals" aria-label="Player and spirit status">
-        <MeterRail kind="health" current={controllerState.health.current} max={controllerState.health.maximum} />
-        <MeterRail kind="spirit" current={controllerState.resources.spirit.current} max={controllerState.resources.spirit.maximum} />
-      </section>
 
       <section className="prototype-hud__character-loadout" aria-label="Lunchbox, agility, and map">
         {mapSlot}
@@ -975,25 +1108,28 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         <EventLog channel="system" align="center" logs={logs} />
         <form className="atlas-chat" onSubmit={(event) => { event.preventDefault(); const message = chatDraft.trim(); if (!message) return; appendLog("system", `Message sent: ${message}`, "info"); setChatDraft(""); }}>
           <label className="sr-only" htmlFor="atlas-chat-input">Chat message</label>
-          <input ref={chatInputRef} id="atlas-chat-input" value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); setChatOpen(false); event.currentTarget.blur(); } }} placeholder="Type a message…" maxLength={180} />
+          <input ref={chatInputRef} id="atlas-chat-input" value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); setChatOpen(false); event.currentTarget.blur(); } }} placeholder="Type a message…" maxLength={160} />
           <button type="submit" aria-label="Send message"><AtlasIcon name="chevron" size={0.9} /></button>
         </form>
       </section> : null}
 
       <nav className="atlas-actionbar prototype-hud__actionbar" aria-label="Character and action slots">
         <div className="prototype-hud__action-side prototype-hud__action-side--left">
+          <div className="prototype-hud__action-vital prototype-hud__action-vital--health"><MeterRail kind="health" current={controllerState.health.current} max={controllerState.health.maximum} /></div>
           <div className="prototype-hud__action-grid" aria-label="Odd action slots">
-            {[0, 2, 4, 6, 8, 10].map((index) => renderSlot(`action${index}`, `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
+            {oddActionIndices.map((index) => renderSlot(actionSlotName(activeLoadout, index), `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
           </div>
-          <AtlasItemSlot item={selectedHandItem} label="Left Action" size="action" hotkey="LMB" className="prototype-hud__hand-action" onClick={() => activateHandAction("left")} />
+          <AtlasItemSlot item={selectedLeftItem} label="Left Click" size="action" hotkey="LMB" selected className="prototype-hud__hand-action" onClick={() => activateHandAction("left")} />
         </div>
         <div className="prototype-hud__character-anchor" aria-label="Character slot">
           {renderSlot("character", "Character", activeCharacter, "utility", "C")}
+          <span className="prototype-hud__loadout-index">Loadout {activeLoadout + 1}/3 · X</span>
         </div>
         <div className="prototype-hud__action-side prototype-hud__action-side--right">
-          <AtlasItemSlot item={selectedHandItem} label="Right Action" size="action" hotkey="RMB" className="prototype-hud__hand-action" onClick={() => activateHandAction("right")} />
+          <div className="prototype-hud__action-vital prototype-hud__action-vital--spirit"><MeterRail kind="spirit" current={controllerState.resources.spirit.current} max={controllerState.resources.spirit.maximum} /></div>
+          <AtlasItemSlot item={selectedRightItem} label="Right Click" size="action" hotkey="RMB" selected className="prototype-hud__hand-action" onClick={() => activateHandAction("right")} />
           <div className="prototype-hud__action-grid" aria-label="Even action slots">
-            {[1, 3, 5, 7, 9, 11].map((index) => renderSlot(`action${index}`, `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
+            {evenActionIndices.map((index) => renderSlot(actionSlotName(activeLoadout, index), `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
           </div>
         </div>
       </nav>
@@ -1008,7 +1144,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
       {openPanel === "settings" ? <SettingsPanel bindings={bindings} onBindingsChange={setBindings} onClose={() => setPanel(null)} /> : null}
       {mapOpen && mapItem ? <PlayerMapPanel item={mapItem} player={mapPosition} markers={defaultMapMarkers} onClose={() => setMapOpen(false)} /> : null}
 
-      {contextMenu ? <div ref={contextMenuRef} className="atlas-context-menu" style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }} role="menu" aria-label={`${contextMenu.item.name} actions`} tabIndex={-1} onKeyDown={handleContextMenuKeyDown}><strong>{contextMenu.item.name}</strong><span>{contextMenu.item.leftClickAction ?? "Inspect item"}</span><div className="atlas-context-divider" />{compatibleItems(contextMenu.slotKind).map((item) => <button key={item.id} type="button" role="menuitem" onClick={() => { const destination = targetLocation(contextMenu.slotKind); if (destination) moveItem(item.id, destination); setContextMenu(null); }}><AtlasIcon name={item.icon} size={0.9} /><span>{item.name}</span></button>)}{compatibleItems(contextMenu.slotKind).length === 0 ? <small>No compatible items</small> : null}</div> : null}
+      {contextMenu ? <div ref={contextMenuRef} className="atlas-context-menu" style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }} role="menu" aria-label={`${contextMenu.item.name} actions`} tabIndex={-1} onKeyDown={handleContextMenuKeyDown}><strong>{contextMenu.item.name}</strong><span>{contextMenu.item.leftClickAction ?? "Inspect item"}</span>{isCompatible(contextMenu.item, "action0") ? <><div className="atlas-context-divider" /><button type="button" role="menuitem" onClick={() => equipItemForActionSide(contextMenu.item, "left")}><AtlasIcon name="chevron" size={0.9} /><span>Equip Left · Slot {selectedLeftIndex + 1}</span></button><button type="button" role="menuitem" onClick={() => equipItemForActionSide(contextMenu.item, "right")}><AtlasIcon name="chevron" size={0.9} /><span>Equip Right · Slot {selectedRightIndex + 1}</span></button></> : null}<div className="atlas-context-divider" />{compatibleItems(contextMenu.slotKind).map((item) => <button key={item.id} type="button" role="menuitem" onClick={() => { const destination = targetLocation(contextMenu.slotKind); if (destination) moveItem(item.id, destination); setContextMenu(null); }}><AtlasIcon name={item.icon} size={0.9} /><span>{item.name}</span></button>)}{compatibleItems(contextMenu.slotKind).length === 0 && !isCompatible(contextMenu.item, "action0") ? <small>No compatible items</small> : null}</div> : null}
     </div>
   );
 }

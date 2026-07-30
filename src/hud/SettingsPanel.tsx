@@ -56,14 +56,21 @@ export function SettingsPanel({ bindings, onBindingsChange, onClose }: SettingsP
 
     const handleMouseDown = (event: MouseEvent) => {
       event.preventDefault();
-      commitBinding(`Mouse ${event.button + 1}`);
+      const ordinal = event.button === 0 ? 1 : event.button === 2 ? 2 : event.button === 1 ? 3 : event.button + 1;
+      commitBinding(`Mouse ${ordinal}${rebinding.id === "right-action-scroll-modifier" ? " (Hold)" : ""}`);
+    };
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      commitBinding(event.deltaY < 0 ? "Scroll Up" : "Scroll Down");
     };
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     window.addEventListener("mousedown", handleMouseDown, { capture: true });
+    window.addEventListener("wheel", handleWheel, { capture: true, passive: false });
     return () => {
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
       window.removeEventListener("mousedown", handleMouseDown, { capture: true });
+      window.removeEventListener("wheel", handleWheel, { capture: true });
     };
   }, [bindings, onBindingsChange, rebinding]);
 

@@ -71,14 +71,18 @@ export const initialBindings: SettingsBinding[] = [
   { id: "actionbar-7", group: "Actionbar", label: "Actionbar 7", primary: "7", secondary: "Unbound", gamepad: "Left Trigger" },
   { id: "actionbar-8", group: "Actionbar", label: "Actionbar 8", primary: "8", secondary: "Unbound", gamepad: "Right Trigger" },
   { id: "actionbar-9", group: "Actionbar", label: "Actionbar 9", primary: "9", secondary: "Unbound", gamepad: "Start" },
+  { id: "actionbar-10", group: "Actionbar", label: "Actionbar 10", primary: "0", secondary: "Unbound", gamepad: "Unbound" },
+  { id: "previous-action-slot", group: "Actionbar", label: "Previous Action Slot", hint: "Scrolls through odd-numbered left action items.", primary: "Scroll Up", secondary: "Unbound", gamepad: "Unbound" },
+  { id: "next-action-slot", group: "Actionbar", label: "Next Action Slot", hint: "Scrolls through odd-numbered left action items.", primary: "Scroll Down", secondary: "Unbound", gamepad: "Unbound" },
+  { id: "right-action-scroll-modifier", group: "Actionbar", label: "Right Action Scroll Modifier", hint: "Hold this while scrolling to rotate through even-numbered right action items.", primary: "Mouse 2 (Hold)", secondary: "Unbound", gamepad: "Left Trigger (Hold)" },
   { id: "ultimate", group: "Tome Actions", label: "Tome Ultimate", primary: "Q", secondary: "Unbound", gamepad: "Y" },
   { id: "skill-1", group: "Tome Actions", label: "Tome Action 1", primary: "E", secondary: "Unbound", gamepad: "X" },
   { id: "skill-2", group: "Tome Actions", label: "Tome Action 2", primary: "F", secondary: "Unbound", gamepad: "A" },
-  { id: "left-hand", group: "Item Actions", label: "Left Hand", hint: "Uses the selected item's primary action.", primary: "Mouse 1", secondary: "Unbound", gamepad: "Right Trigger" },
-  { id: "right-hand", group: "Item Actions", label: "Right Hand", hint: "Uses the selected item's secondary action.", primary: "Mouse 2", secondary: "Unbound", gamepad: "Left Trigger" },
+  { id: "left-hand", group: "Item Actions", label: "Left Click Action", hint: "Uses the primary action of the selected odd-numbered item.", primary: "Mouse 1", secondary: "Unbound", gamepad: "Right Trigger" },
+  { id: "right-hand", group: "Item Actions", label: "Right Click Action", hint: "Uses the secondary action of the selected even-numbered item.", primary: "Mouse 2", secondary: "Unbound", gamepad: "Left Trigger" },
   { id: "restore", group: "General Actions", label: "Restore/Reload", primary: "R", secondary: "Unbound", gamepad: "B" },
   { id: "grab", group: "Grab & Swap", label: "Grab", primary: "G", secondary: "Unbound", gamepad: "Right Stick Press" },
-  { id: "swap", group: "Grab & Swap", label: "Swap", primary: "X", secondary: "Unbound", gamepad: "View" },
+  { id: "swap", group: "Grab & Swap", label: "Swap Action Loadout", hint: "Cycles between three action-item loadouts.", primary: "X", secondary: "Unbound", gamepad: "View" },
   { id: "escape", group: "UI", label: "Release Mouse", primary: "Escape", secondary: "Hardcoded", gamepad: "Menu" },
   { id: "map-zoom-in", group: "UI", label: "Map Zoom In", primary: "Scroll Up", secondary: "=", gamepad: "Right Bumper" },
   { id: "map-zoom-out", group: "UI", label: "Map Zoom Out", primary: "Scroll Down", secondary: "-", gamepad: "Left Bumper" },
@@ -86,6 +90,25 @@ export const initialBindings: SettingsBinding[] = [
   { id: "character", group: "UI", label: "Character", primary: "C", secondary: "Unbound", gamepad: "Menu Left" },
   { id: "open-chat", group: "Chat", label: "Toggle Chat", primary: "T", secondary: "Unbound", gamepad: "Unbound" }
 ];
+
+export const CONTROL_BINDINGS_STORAGE_KEY = "knowhere.controls.bindings.v1";
+
+export function loadControlBindings(): SettingsBinding[] {
+  if (typeof window === "undefined") return initialBindings.map((binding) => ({ ...binding }));
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(CONTROL_BINDINGS_STORAGE_KEY) ?? "[]") as SettingsBinding[];
+    const byId = new Map(stored.map((binding) => [binding.id, binding]));
+    return initialBindings.map((binding) => ({ ...binding, ...byId.get(binding.id), id: binding.id, group: binding.group, label: binding.label, hint: binding.hint }));
+  } catch {
+    return initialBindings.map((binding) => ({ ...binding }));
+  }
+}
+
+export function saveControlBindings(bindings: readonly SettingsBinding[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(CONTROL_BINDINGS_STORAGE_KEY, JSON.stringify(bindings));
+  window.dispatchEvent(new CustomEvent("knowhere:control-bindings-changed", { detail: bindings }));
+}
 
 export const initialCanvasItems: Record<string, CanvasItem> = {
   kingdom: { id: "kingdom", type: "kingdom", name: "Kingdom of Knowhere", w: 1, h: 1, icon: "castle", loc: { kind: "hud", slot: "account" } },
@@ -104,7 +127,7 @@ export const initialCanvasItems: Record<string, CanvasItem> = {
   lunchbox1: { id: "lunchbox1", type: "bag", name: "Garden Lunchbox", w: 2, h: 2, icon: "food", grid: { cols: 4, rows: 3 }, loc: { kind: "hud", slot: "lunchbox" } },
   spiritBox1: { id: "spiritBox1", type: "bag", name: "Spirit Box", w: 2, h: 2, icon: "spirit", grid: { cols: 4, rows: 4 }, loc: { kind: "limbo" } },
   stashVault: { id: "stashVault", type: "bag", name: "Personal Stash", w: 2, h: 2, icon: "backpack", grid: { cols: 18, rows: 18 }, loc: { kind: "limbo" } },
-  stashVeyra: { id: "stashVeyra", type: "character", name: "Veyra", w: 2, h: 2, icon: "cat", note: "Selected spirit character", loc: { kind: "grid", bagId: "stashVault", x: 0, y: 0 } },
+  stashVeyra: { id: "stashVeyra", type: "character", name: "Soul Gem — Veyra", w: 2, h: 2, icon: "cat", note: "Selected spirit character", loc: { kind: "grid", bagId: "stashVault", x: 0, y: 0 } },
   stashUtilityBelt: { id: "stashUtilityBelt", type: "belt", name: "Utility Belt", w: 2, h: 1, icon: "belt", loc: { kind: "grid", bagId: "stashVault", x: 4, y: 0 } },
   stashMilitaryPack: { id: "stashMilitaryPack", type: "bag", name: "Military Pack", w: 2, h: 2, icon: "backpack", loc: { kind: "grid", bagId: "stashVault", x: 6, y: 0 } },
   stashIronShield: { id: "stashIronShield", type: "tool", name: "Iron Shield", w: 2, h: 3, icon: "target", loc: { kind: "grid", bagId: "stashVault", x: 8, y: 0 } },

@@ -8,6 +8,8 @@ export {
 export type { CharacterBlockFaceTargetPresentationEventDetail, CharacterBlockFaceTargetHudState, CharacterBlockFaceTargetPromptKind } from "./blockFaceTarget";
 export { GameplayMouseModeController, gameplayMouseMode, isGameplayMouseExcludedTarget } from "./mouseMode";
 export { createMovementActionsReadModel } from "./movementActions";
+export { clearPersistedWorldPosition, persistWorldPosition, restoreWorldPosition } from "./positionPersistence";
+export type { PersistedWorldPosition, WorldPositionIdentity } from "./positionPersistence";
 export { useCharacterControllerState } from "./react";
 export { createActionbarItemAbilityContracts, createDemoSkillContracts, createItemAbilityContracts, findPublishedItemDefinition, parsePublishedItemDefinition, parsePublishedSkill } from "./skills";
 export type { PublishedItemDefinition } from "./skills";

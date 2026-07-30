@@ -150,6 +150,7 @@ export type CanvasItem = {
   };
   stats?: {
     bagSlots?: number;
+    actionSlotPairs?: number;
     cooldown?: number;
     cooldownRemaining?: number;
     durability?: number;

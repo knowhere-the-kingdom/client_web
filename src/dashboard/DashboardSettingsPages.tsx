@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { initialBindings } from "../hud/demoData";
+import { initialBindings, saveControlBindings } from "../hud/demoData";
 import type { SettingsBinding } from "../hud/types";
 
 export type SettingsDashboardPage =
@@ -149,12 +149,14 @@ export function DashboardSettingsPage({
   const save = () => {
     const next = { ...preferences, updatedAt: new Date().toISOString() };
     window.localStorage.setItem(storageKey(user.id), JSON.stringify(next));
+    saveControlBindings(next.controls.bindings);
     setPreferences(next);
     setSaved(next.updatedAt);
   };
   const reset = () => {
     const next = defaults(user.displayName);
     window.localStorage.setItem(storageKey(user.id), JSON.stringify(next));
+    saveControlBindings(next.controls.bindings);
     setPreferences(next);
     setSaved(null);
   };
@@ -205,15 +207,32 @@ function ControlsPage({ page, value, onChange, onNavigate, onSave, onReset, save
   const [rebinding, setRebinding] = useState<{ id: string; column: BindingColumn } | null>(null);
   useEffect(() => {
     if (!rebinding) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      event.preventDefault();
-      if (event.key === "Escape") { setRebinding(null); return; }
-      const nextValue = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+    const commit = (nextValue: string) => {
       onChange({ ...value, bindings: value.bindings.map((binding) => binding.id === rebinding.id ? { ...binding, [rebinding.column]: nextValue } : binding) });
       setRebinding(null);
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      event.preventDefault();
+      if (event.key === "Escape") { setRebinding(null); return; }
+      commit(event.key.length === 1 ? event.key.toUpperCase() : event.key);
+    };
+    const onMouseDown = (event: MouseEvent) => {
+      event.preventDefault();
+      const ordinal = event.button === 0 ? 1 : event.button === 2 ? 2 : event.button === 1 ? 3 : event.button + 1;
+      commit(`Mouse ${ordinal}${rebinding.id === "right-action-scroll-modifier" ? " (Hold)" : ""}`);
+    };
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      commit(event.deltaY < 0 ? "Scroll Up" : "Scroll Down");
+    };
     window.addEventListener("keydown", onKeyDown, { capture: true });
-    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener("mousedown", onMouseDown, { capture: true });
+    window.addEventListener("wheel", onWheel, { capture: true, passive: false });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, { capture: true });
+      window.removeEventListener("mousedown", onMouseDown, { capture: true });
+      window.removeEventListener("wheel", onWheel, { capture: true });
+    };
   }, [onChange, rebinding, value]);
   const bindingGroups = useMemo(() => {
     const interfaceGroups = new Set<SettingsBinding["group"]>(["UI", "Chat"]);

@@ -15,6 +15,8 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { characterController, gameplayMouseMode, routeCharacterBlockFaceTargetSource } from "../features/character-controller";
 import type { CharacterActionSignal } from "../features/character-controller";
+import { persistWorldPosition, restoreWorldPosition } from "../features/character-controller/positionPersistence";
+import type { WorldPositionIdentity } from "../features/character-controller/positionPersistence";
 import { loadActiveStatefulWorld } from "./statefulWorldRuntime";
 import type { GardenSceneProjectionV1 } from "../api/gateway-contract";
 import { createMythicSun } from "./mythic-sun";
@@ -1211,8 +1213,18 @@ function createStarfield(scene: Scene) {
   return starRoot;
 }
 
-export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneProjectionV1 }>) {
+export function BabylonScene({ projection, worldIdentity, interactive = true }: Readonly<{ projection: GardenSceneProjectionV1; worldIdentity?: WorldPositionIdentity; interactive?: boolean }>) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const interactionEnabledRef = useRef(interactive);
+
+  useEffect(() => {
+    interactionEnabledRef.current = interactive;
+    if (!interactive) {
+      characterController.releaseAllInputs();
+      characterController.cancelPendingPointerAction();
+      if (document.pointerLockElement) void document.exitPointerLock();
+    }
+  }, [interactive]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1267,6 +1279,14 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
     camera.minZ = 0.05;
     camera.maxZ = 30000;
     camera.checkCollisions = false;
+    const restoredPosition = worldIdentity
+      ? restoreWorldPosition(window.sessionStorage, worldIdentity)
+      : null;
+    if (restoredPosition) {
+      camera.position.set(restoredPosition.position.x, restoredPosition.position.y, restoredPosition.position.z);
+      camera.rotation.x = restoredPosition.rotation.x;
+      camera.rotation.y = restoredPosition.rotation.y;
+    }
     engine.resize();
 
     const glow: GlowLayer | null = null;
@@ -1405,12 +1425,12 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
     let freeDragPointerId: number | null = null;
     let lastCanvasPointer: Readonly<{ x: number; y: number }> | null = null;
     let lastTargetSourceRevision: string | null = null;
-    const handleControllerKeyDown = (event: KeyboardEvent) => characterController.handleKeyDown(event);
-    const handleControllerKeyUp = (event: KeyboardEvent) => characterController.handleKeyUp(event);
+    const handleControllerKeyDown = (event: KeyboardEvent) => { if (interactionEnabledRef.current) characterController.handleKeyDown(event); };
+    const handleControllerKeyUp = (event: KeyboardEvent) => { if (interactionEnabledRef.current) characterController.handleKeyUp(event); };
     const handleControllerActionSignal = (event: Event) => {
       const detail = (event as CustomEvent<CharacterActionSignal>).detail;
       if (!detail || typeof detail.actionId !== "string" || (detail.phase !== "pressed" && detail.phase !== "released")) return;
-      characterController.handleActionSignal(detail);
+      if (interactionEnabledRef.current) characterController.handleActionSignal(detail);
     };
     const readCanvasPointer = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -1426,6 +1446,7 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
       freeDragPointerId = null;
     };
     const handleControllerPointerDown = (event: PointerEvent) => {
+      if (!interactionEnabledRef.current) return;
       lastCanvasPointer = readCanvasPointer(event);
       const decision = gameplayMouseMode.handlePointerDown(event, canvas);
       if (gameplayMouseMode.getSnapshot().freeDragActive && event.pointerId !== undefined) {
@@ -1436,16 +1457,20 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
       if (decision.allowGameplayAction) characterController.handlePointerDown(event);
     };
     const handleControllerDoubleClick = (event: MouseEvent) => {
+      if (!interactionEnabledRef.current) return;
       releaseFreeDragPointerCapture();
       gameplayMouseMode.handleDoubleClick(event, canvas);
     };
     const handleControllerPointerMove = (event: PointerEvent) => {
+      if (!interactionEnabledRef.current) return;
       lastCanvasPointer = readCanvasPointer(event);
       if (!gameplayMouseMode.getSnapshot().pointerLocked && !gameplayMouseMode.getSnapshot().freeDragActive) return;
       const decision = gameplayMouseMode.handlePointerMove(event);
       if (decision.lookDelta) characterController.handleLookInput(decision.lookDelta.x, decision.lookDelta.y, canvas.clientWidth, canvas.clientHeight);
     };
     const handleControllerPointerUp = (event: PointerEvent) => {
+      if (!interactionEnabledRef.current) return;
+      characterController.handlePointerUp(event);
       if (gameplayMouseMode.handlePointerUp(event)) releaseFreeDragPointerCapture();
     };
     const handleControllerPointerCancel = () => {
@@ -1492,11 +1517,12 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
 
     let previousEntityPosition = camera.position.clone();
     let verticalSpeed = 0;
+    let nextPositionSaveAt = performance.now() + 1_000;
     const renderFrame = () => {
       const now = performance.now();
       const deltaSeconds = Math.min(0.08, Math.max(0, (now - lastFrameAt) / 1000));
       lastFrameAt = now;
-      characterController.pollGamepads(navigator.getGamepads?.() ?? []);
+      characterController.pollGamepads(interactionEnabledRef.current ? navigator.getGamepads?.() ?? [] : []);
       const controllerFrame = characterController.tick(now, deltaSeconds);
       applyCharacterLookToCamera(camera, controllerFrame.look);
       const routedTargetSource = routeCharacterBlockFaceTargetSource({
@@ -1569,6 +1595,15 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
         velocity: { x: entityVelocity.x, y: entityVelocity.y, z: entityVelocity.z },
       });
       window.dispatchEvent(new CustomEvent("knowhere:entity-runtime-snapshot", { detail: entitySnapshot }));
+      if (worldIdentity && now >= nextPositionSaveAt) {
+        nextPositionSaveAt = now + 1_000;
+        persistWorldPosition(
+          window.sessionStorage,
+          worldIdentity,
+          { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+          { x: camera.rotation.x, y: camera.rotation.y },
+        );
+      }
 
       const time = sunOrbitRadiansAt(projection.sun);
       const radius = 12500;
@@ -1649,7 +1684,7 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
       scene.dispose();
       engine.dispose();
     };
-  }, [projection]);
+  }, [projection, worldIdentity]);
 
   return <canvas ref={canvasRef} className="scene-canvas" />;
 }

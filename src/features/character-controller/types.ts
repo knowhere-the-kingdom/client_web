@@ -16,7 +16,7 @@ export type CharacterActionId =
   | "tome-action-2"
   | "left-hand"
   | "right-hand"
-  | `actionbar-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`;
+  | `actionbar-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}`;
 
 export type MovementDirection = "forward" | "back" | "left" | "right";
 export type CharacterMovementMode = "idle" | "locomotion" | "sprint" | "dodge" | "jump" | "airborne" | "crouch" | "flight" | "land";
@@ -33,7 +33,7 @@ export type AbilitySlot =
   | "tome.action2"
   | "item.leftHand"
   | "item.rightHand"
-  | `actionbar.${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`;
+  | `actionbar.${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}`;
 
 export type SkillRuntimeContract = Readonly<{
   id: string;

@@ -3220,6 +3220,10 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
 .prototype-hud__hand-action .atlas-slot-caption{display:block;white-space:nowrap}
 .prototype-hud__character-anchor{align-self:end}
 .prototype-hud__character-anchor .atlas-slot-caption{display:block}
+.prototype-hud__character-anchor{position:relative;display:grid;justify-items:center}
+.prototype-hud__loadout-index{position:absolute;bottom:calc(100% + .15rem);left:50%;width:max-content;color:var(--prototype-gold);font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;transform:translateX(-50%)}
+.prototype-hud__compass-slot--equipment .atlas-slot-wrap{width:calc(var(--prototype-grid) * 2)}
+.prototype-hud__compass-slot--equipment .atlas-slot{width:calc(var(--prototype-grid) * 2);height:calc(var(--prototype-grid) * 2);min-height:calc(var(--prototype-grid) * 2)}
 .prototype-hud .prototype-hud__actionbar::before{opacity:.4}.prototype-hud .atlas-chat{bottom:calc((var(--atlas-action-slot-size) * 2) + 2rem);left:50%;width:min(25rem,48vw);transform:translateX(-50%)}
 .prototype-hud .atlas-center-stage .atlas-event-log-left{left:5.5rem;bottom:8rem}.prototype-hud .atlas-center-stage .atlas-event-log-right{right:5.5rem;bottom:8rem}.prototype-hud .atlas-center-stage .atlas-event-log-center{bottom:9rem}
 .prototype-hud .atlas-slot-wrap-utility{width:var(--prototype-grid)}.prototype-hud .atlas-slot-wrap-utility .atlas-slot{min-height:var(--prototype-grid)}
@@ -3499,9 +3503,9 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
   pointer-events: auto;
   text-transform: uppercase;
 }
-.prototype-designer-access__slot { width: calc(var(--prototype-grid, 3.25rem) * 2); }
+.prototype-designer-access__slot { width: var(--prototype-grid, 3.25rem); }
 .prototype-designer-access__slot .atlas-slot {
-  min-height: calc(var(--prototype-grid, 3.25rem) * 2);
+  min-height: var(--prototype-grid, 3.25rem);
   border-color: var(--atlas-gold-bright);
   background: radial-gradient(circle, color-mix(in srgb, var(--atlas-gold) 12%, transparent), var(--atlas-ink));
   box-shadow: inset 0 0 0 .16rem var(--atlas-ink), 0 0 .85rem color-mix(in srgb, var(--atlas-gold) 20%, transparent);
@@ -3582,8 +3586,8 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
 .atlas-stash-panel:has(.atlas-bag-grid[data-bag-id="stashVault"]) .atlas-stash-grid-wrap { justify-items: start; max-height: calc(100vh - 17rem); }
 
 @media (max-width: 64rem) {
-  .prototype-designer-access__slot { width: calc(var(--prototype-grid, 2.65rem) * 2); }
-  .prototype-designer-access__slot .atlas-slot { min-height: calc(var(--prototype-grid, 2.65rem) * 2); }
+  .prototype-designer-access__slot { width: var(--prototype-grid, 2.65rem); }
+  .prototype-designer-access__slot .atlas-slot { min-height: var(--prototype-grid, 2.65rem); }
   .atlas-stash-panel:has(.atlas-bag-grid[data-bag-id="stashVault"]) { width: min(40rem, calc(100vw - 1rem)); }
 }
 
@@ -3597,7 +3601,7 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
 /* Chat log and composer share one HUD column and toggle together. */
 .prototype-hud .atlas-chat-stack {
   position: absolute;
-  z-index: 8;
+  z-index: 200;
   bottom: 6.2rem;
   left: 50%;
   display: grid;
@@ -3605,6 +3609,20 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
   width: min(calc(100vw / 3), calc(100vw - 2rem));
   transform: translateX(-50%);
   pointer-events: none;
+}
+.prototype-hud .atlas-center-stage .atlas-event-log-left,
+.prototype-hud .atlas-center-stage .atlas-event-log-right {
+  position: absolute;
+  top: 50%;
+  bottom: auto;
+  width: min(20rem, calc(50vw - 2rem));
+  transform: translateY(-50%);
+}
+.prototype-hud .atlas-center-stage .atlas-event-log-left {
+  left: max(12px, env(safe-area-inset-left));
+}
+.prototype-hud .atlas-center-stage .atlas-event-log-right {
+  right: max(12px, env(safe-area-inset-right));
 }
 .prototype-hud .atlas-chat-stack .atlas-event-log-center {
   position: static;
@@ -3633,4 +3651,78 @@ body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
 @media (max-width: 42rem) {
   .prototype-hud .atlas-chat-stack { bottom: 6rem; width: calc(100vw - 1rem); }
   .prototype-hud .atlas-chat-stack .atlas-chat { grid-template-columns: minmax(0, 1fr) 2.35rem; }
+}
+
+/* One dev_prototype grid unit is 32px. Awareness always occupies a 2x2 item
+   footprint and sits one unit in from the safe viewport edge. */
+:root { --knowhere-grid-unit: 2rem; }
+.prototype-hud__designer,
+.atlas-seated-awareness {
+  position: fixed;
+  z-index: 140;
+  top: max(var(--knowhere-grid-unit), env(safe-area-inset-top));
+  left: max(var(--knowhere-grid-unit), env(safe-area-inset-left));
+  width: calc(var(--knowhere-grid-unit) * 2);
+  margin: 0;
+  padding: 0;
+  transform: none;
+}
+.prototype-designer-access { width: calc(var(--knowhere-grid-unit) * 2); }
+.prototype-designer-access__slot,
+.prototype-designer-access__slot .atlas-slot {
+  width: calc(var(--knowhere-grid-unit) * 2);
+  min-height: calc(var(--knowhere-grid-unit) * 2);
+}
+.prototype-hud .prototype-hud__top { left: var(--knowhere-grid-unit); right: var(--knowhere-grid-unit); }
+.app-shell > .dashboard-page { position: fixed; z-index: 300; inset: 0; }
+.app-shell.is-dashboard-open .scene-canvas { pointer-events: none; }
+
+/* The composer is opt-in and clears the action row by three 32px units. */
+.prototype-hud .atlas-chat-stack { bottom: calc(6.2rem + (var(--knowhere-grid-unit) * 3)); }
+
+/* Thin, transparent action-attached resource rails. */
+.prototype-hud__action-side { position: relative; }
+.prototype-hud__action-vital {
+  position: absolute;
+  bottom: calc(100% + .35rem);
+  width: calc(var(--knowhere-grid-unit) * 4);
+  height: .8rem;
+  pointer-events: none;
+}
+.prototype-hud__action-vital--health { left: 0; }
+.prototype-hud__action-vital--spirit { right: 0; }
+.prototype-hud__action-vital .atlas-meter {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  align-items: center;
+  gap: .35rem;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.prototype-hud__action-vital .atlas-meter-heading { position: static; display: block; min-width: 2.8rem; text-align: left; }
+.prototype-hud__action-vital--spirit .atlas-meter-heading { text-align: right; }
+.prototype-hud__action-vital .atlas-meter-heading span { display: none; }
+.prototype-hud__action-vital .atlas-meter-heading strong { color: rgba(255,255,255,.82); font-size: .58rem; font-weight: 500; }
+.prototype-hud__action-vital .atlas-meter-segments { display: flex; flex-direction: row; gap: .12rem; height: .42rem; }
+.prototype-hud__action-vital .atlas-meter-segments > i { min-width: 0; min-height: 0; border-width: .04rem; background: rgba(0,0,0,.18); box-shadow: none; }
+
+.prototype-stash-panel--canonical {
+  border-color: color-mix(in srgb, var(--prototype-gold) 72%, transparent);
+  background: color-mix(in srgb, #020807 78%, transparent);
+  backdrop-filter: none;
+}
+.prototype-stash-panel--canonical .atlas-stash-header { min-height: var(--knowhere-grid-unit); padding: 0 0 .25rem; background: transparent; }
+
+@media (max-width: 42rem) {
+  .prototype-hud__designer,
+  .atlas-seated-awareness { top: max(var(--knowhere-grid-unit), env(safe-area-inset-top)); left: max(var(--knowhere-grid-unit), env(safe-area-inset-left)); }
+  .prototype-hud .atlas-chat-stack { bottom: calc(6rem + (var(--knowhere-grid-unit) * 3)); }
+  .prototype-hud__action-vital { width: calc(var(--knowhere-grid-unit) * 3); }
 }

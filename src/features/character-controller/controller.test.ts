@@ -200,6 +200,33 @@ test("configured pointer bindings activate selected item hand contracts", () => 
   assert.equal(controller.getSnapshot().abilityPhase, "windup");
 });
 
+test("right-click action waits for release and wheel selection may cancel it", () => {
+  const controller = new CharacterController();
+  const contracts = createItemAbilityContracts({
+    id: "test-sword",
+    type: "weapon",
+    name: "Test Sword",
+    w: 1,
+    h: 2,
+    icon: "sword",
+    leftClickAction: "attack",
+    rightClickAction: "guard",
+    loc: { kind: "hud", slot: "action1" },
+  });
+  controller.configureSkills(contracts);
+  controller.configureBindings([{ id: "right-hand", primary: "Mouse 2", secondary: "Unbound" }]);
+
+  controller.handlePointerDown({ button: 2, target: null, preventDefault: () => undefined } as MouseEvent);
+  assert.equal(controller.getSnapshot().activeAbilityId, null);
+  controller.cancelPendingPointerAction();
+  controller.handlePointerUp({ button: 2 } as MouseEvent);
+  assert.equal(controller.getSnapshot().activeAbilityId, null);
+
+  controller.handlePointerDown({ button: 2, target: null, preventDefault: () => undefined } as MouseEvent);
+  controller.handlePointerUp({ button: 2 } as MouseEvent);
+  assert.equal(controller.getSnapshot().activeAbilityId, "item:test-sword:right:item.rightHand");
+});
+
 test("published item definitions expose press and hold hand contracts without slot collisions", () => {
   const controller = new CharacterController();
   const source = parsePublishedItemDefinition(publishedSwordRecord);

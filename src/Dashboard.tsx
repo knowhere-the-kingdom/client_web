@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { GatewaySessionProjection } from "./api/gateway-contract";
 import { DashboardSettingsPage, type SettingsDashboardPage } from "./dashboard/DashboardSettingsPages";
 import type { ManagerKind } from "./dashboard/ManagerPage";
@@ -135,6 +135,18 @@ export function Dashboard({ projection, onBack, onLogout }: Readonly<{
     else next.add(id);
     return next;
   });
+
+  useEffect(() => {
+    const returnToGame = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" && event.key !== "Tab") return;
+      const target = event.target as HTMLElement | null;
+      if (target?.matches("input, textarea, select") || target?.isContentEditable) return;
+      event.preventDefault();
+      onBack();
+    };
+    window.addEventListener("keydown", returnToGame);
+    return () => window.removeEventListener("keydown", returnToGame);
+  }, [onBack]);
 
   return <main className="dashboard-page app-page" aria-label="Knowhere Dashboard">
     <aside className="dashboard-sidebar" aria-label="Dashboard navigation">
