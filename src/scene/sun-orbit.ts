@@ -1,10 +1,9 @@
 export const PROTOTYPE_SUN_ORBIT = Object.freeze({
-  horizontalRadius: 180,
-  horizonClearance: 72,
-  daylightArcHeight: 120,
-  minimumVisualScale: 1.65,
+  skyRadius: 1800,
+  horizonElevationRadians: 8 * Math.PI / 180,
+  apparentDiameterRadians: 7 * Math.PI / 180,
+  minimumVisualScale: 0.5,
   maximumVisualScale: 8,
-  minimumApparentDiameterRadians: 24 * Math.PI / 180,
 });
 
 export type WorldPosition = Readonly<{
@@ -16,19 +15,19 @@ export type WorldPosition = Readonly<{
 /**
  * The voxel world uses +X east, +Y up, and +Z north. The visible daylight arc
  * rises in the east, crosses overhead, and sets in the west without drifting
- * north/south or dropping through streamed terrain. Keeping it camera-relative
- * gives it a stable sky-scale while the Gateway-projected clock owns its phase.
+ * north/south or entering streamed terrain. It sits on a distant, fixed-radius
+ * celestial sphere while the Gateway-projected clock owns its phase.
  */
 export function prototypeSunPositionAt(
   orbitRadians: number,
   cameraPosition: WorldPosition,
 ): WorldPosition {
-  const daylightArc = Math.max(0, Math.sin(orbitRadians));
+  const daylightProgress = Math.max(0, Math.min(1, orbitRadians / Math.PI));
+  const elevation = PROTOTYPE_SUN_ORBIT.horizonElevationRadians
+    + daylightProgress * (Math.PI - PROTOTYPE_SUN_ORBIT.horizonElevationRadians * 2);
   return {
-    x: cameraPosition.x + Math.cos(orbitRadians) * PROTOTYPE_SUN_ORBIT.horizontalRadius,
-    y: cameraPosition.y
-      + PROTOTYPE_SUN_ORBIT.horizonClearance
-      + daylightArc * PROTOTYPE_SUN_ORBIT.daylightArcHeight,
+    x: cameraPosition.x + Math.cos(elevation) * PROTOTYPE_SUN_ORBIT.skyRadius,
+    y: cameraPosition.y + Math.sin(elevation) * PROTOTYPE_SUN_ORBIT.skyRadius,
     z: cameraPosition.z,
   };
 }
@@ -36,12 +35,12 @@ export function prototypeSunPositionAt(
 export function safeSunVisualScale(projectedDiameter: number, distance: number): number {
   const boundedDiameter = Math.max(0.001, projectedDiameter);
   const boundedDistance = Math.max(boundedDiameter, distance);
-  const minimumVisibleDiameter = 2
+  const targetVisibleDiameter = 2
     * boundedDistance
-    * Math.tan(PROTOTYPE_SUN_ORBIT.minimumApparentDiameterRadians / 2);
+    * Math.tan(PROTOTYPE_SUN_ORBIT.apparentDiameterRadians / 2);
   return Math.min(
     PROTOTYPE_SUN_ORBIT.maximumVisualScale,
-    Math.max(PROTOTYPE_SUN_ORBIT.minimumVisualScale, minimumVisibleDiameter / boundedDiameter),
+    Math.max(PROTOTYPE_SUN_ORBIT.minimumVisualScale, targetVisibleDiameter / boundedDiameter),
   );
 }
 

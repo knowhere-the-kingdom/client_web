@@ -94,4 +94,8 @@ test("Babylon renders the validated Garden landscape, skybox, and orbiting sun p
   assert.match(source, /garden-solid-color-skybox/);
   assert.match(source, /createMythicSun/);
   assert.match(source, /sunOrbitRadiansAt/);
+  assert.match(source, /SolidParticleSystem\("void-starfield"/);
+  assert.match(source, /stars\.addShape\(starSeed, 720/);
+  assert.match(source, /skyboxDiameter \* 0\.43/);
+  assert.match(source, /Math\.pow\(1 - daylight, 1\.35\)/);
 });

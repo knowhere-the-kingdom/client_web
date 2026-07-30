@@ -13,6 +13,8 @@ import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
+import { SolidParticleSystem } from "@babylonjs/core/Particles/solidParticleSystem";
+import type { SolidParticle } from "@babylonjs/core/Particles/solidParticle";
 import { characterController, gameplayMouseMode, routeCharacterBlockFaceTargetSource } from "../features/character-controller";
 import type { CharacterActionSignal } from "../features/character-controller";
 import { CHARACTER_INPUT_SETTINGS_EVENT, readCharacterInputSettings, type CharacterInputSettingsEventDetail } from "../features/character-controller/runtimeSettings";
@@ -1145,22 +1147,40 @@ function voxelGridCompass(camera: UniversalCamera) {
   return { face: "+Y", heading: voxelHeadingFromForward(forward) };
 }
 
-function createStarfield(scene: Scene) {
+function createStarfield(scene: Scene, skyboxDiameter: number) {
   const starMaterial = new StandardMaterial("void-star-material", scene);
-  starMaterial.emissiveColor = new Color3(0.9, 0.82, 1);
+  starMaterial.disableLighting = true;
+  starMaterial.disableDepthWrite = true;
+  starMaterial.alphaMode = Engine.ALPHA_ADD;
+  starMaterial.emissiveColor = new Color3(0.94, 0.9, 1);
   starMaterial.diffuseColor = Color3.Black();
+  starMaterial.alpha = 0;
 
-  const starRoot = new Mesh("void-starfield", scene);
-  for (let i = 0; i < 220; i += 1) {
-    const theta = hash2(i, 1) * Math.PI * 2;
-    const phi = Math.acos(hash2(i, 2) * 2 - 1);
-      const radius = 900 + hash2(i, 3) * 260;
-      const star = MeshBuilder.CreateSphere(`void-star-${i}`, { diameter: 0.28 + hash2(i, 4) * 0.46, segments: 6 }, scene);
-      star.position = new Vector3(Math.sin(phi) * Math.cos(theta) * radius, Math.cos(phi) * radius + 120, Math.sin(phi) * Math.sin(theta) * radius);
-    star.material = starMaterial;
-    star.parent = starRoot;
-  }
-  return starRoot;
+  const starSeed = MeshBuilder.CreateSphere("void-star-seed", { diameter: 1, segments: 4 }, scene);
+  const stars = new SolidParticleSystem("void-starfield", scene, { updatable: false });
+  const radius = skyboxDiameter * 0.43;
+  stars.addShape(starSeed, 720, {
+    positionFunction: (particle: SolidParticle, index: number) => {
+      const theta = hash2(index, 1) * Math.PI * 2;
+      const y = -0.08 + hash2(index, 2) * 1.06;
+      const horizontal = Math.sqrt(Math.max(0, 1 - y * y));
+      particle.position.set(
+        Math.cos(theta) * horizontal * radius,
+        y * radius,
+        Math.sin(theta) * horizontal * radius,
+      );
+      const size = 0.1 + Math.pow(hash2(index, 4), 5) * 0.46;
+      particle.scaling.setAll(size);
+    },
+  });
+  const starfield = stars.buildMesh();
+  starSeed.dispose();
+  starfield.material = starMaterial;
+  starfield.infiniteDistance = true;
+  starfield.alwaysSelectAsActiveMesh = true;
+  starfield.isPickable = false;
+  starfield.renderingGroupId = 1;
+  return { material: starMaterial, mesh: starfield };
 }
 
 export function BabylonScene({ projection, worldIdentity, interactive = true }: Readonly<{ projection: GardenSceneProjectionV1; worldIdentity?: WorldPositionIdentity; interactive?: boolean }>) {
@@ -1262,8 +1282,6 @@ export function BabylonScene({ projection, worldIdentity, interactive = true }: 
 
     const glow: GlowLayer | null = null;
 
-    safeRun("starfield", () => createStarfield(scene));
-
     const skybox = MeshBuilder.CreateSphere("garden-solid-color-skybox", {
       diameter: projection.skybox.diameter,
       segments: projection.skybox.segments,
@@ -1277,6 +1295,7 @@ export function BabylonScene({ projection, worldIdentity, interactive = true }: 
     skyboxMaterial.emissiveColor = Color3.FromHexString(projection.skybox.dayColor);
     skybox.material = skyboxMaterial;
     skybox.renderingGroupId = 0;
+    const starfield = safeRun("starfield", () => createStarfield(scene, projection.skybox.diameter));
 
     const ambient = new HemisphericLight("void-ambient-light", new Vector3(0, 1, 0), scene);
     ambient.groundColor = new Color3(0.1, 0.18, 0.16);
@@ -1602,6 +1621,9 @@ export function BabylonScene({ projection, worldIdentity, interactive = true }: 
         Color3.FromHexString(projection.skybox.dayColor),
         daylight,
       );
+      if (starfield) {
+        starfield.material.alpha = Math.pow(1 - daylight, 1.35) * 0.96;
+      }
       if (terrainMaterial) {
         terrainMaterial.emissiveColor = projectedTerrainEmissive.scale(0.84 + lowLightWire * 0.34);
         terrainMaterial.specularColor = projectedTerrainSpecular.scale(0.82 + daylight * 0.36);
