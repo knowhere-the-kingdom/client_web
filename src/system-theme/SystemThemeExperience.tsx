@@ -55,14 +55,18 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
     if (!placeHeldInventoryItem(movement, AWARENESS_INSTANCE, true).ok) return;
     setMovement(EMPTY_INVENTORY_MOVEMENT); dispatch({ type: "insert-key" }); queueMicrotask(() => void checkSession());
   }
-  function removeKey() {
+  async function removeKey() {
     if (removalInFlight.current) return;
     removalInFlight.current = true;
-    request.current?.abort(); setClosing(true); setMovement(EMPTY_INVENTORY_MOVEMENT); dispatch({ type: "remove-key" });
-    void gateway.logout().finally(() => window.setTimeout(() => { setClosing(false); removalInFlight.current = false; }, 320));
+    request.current?.abort(); setClosing(true);
+    const g = generation.current;
+    const result = await gateway.logout();
+    if (!result.ok) { setClosing(false); removalInFlight.current = false; fail(g, result.code); return; }
+    setMovement(EMPTY_INVENTORY_MOVEMENT); dispatch({ type: "remove-key" });
+    window.setTimeout(() => { setClosing(false); removalInFlight.current = false; }, 320);
   }
   async function login(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const data = new FormData(event.currentTarget); const { controller, generation: g } = beginRequest();
+    event.preventDefault(); const form = event.currentTarget; const data = new FormData(form); form.reset(); const { controller, generation: g } = beginRequest();
     dispatch({ type: "connect" }); const correlationId = crypto.randomUUID(); progress(g, correlationId, 1, 20, "Connecting to server");
     const result = await gateway.login(String(data.get("username") ?? ""), String(data.get("password") ?? ""), controller.signal);
     if (controller.signal.aborted) return; if (!result.ok) return fail(g, result.code);
@@ -79,5 +83,5 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
     : flow.stage === "character-create" ? <section><h1>Create Character</h1><p>Character creation requires a server-confirmed profile and ownership projection. No request is mounted.</p></section>
     : flow.stage === "login" ? <form onSubmit={login}><h1>KNOWHERE</h1><label>Username<input name="username" required autoComplete="username" /></label><label>Password<input name="password" type="password" required autoComplete="current-password" /></label><label className="system-check"><input name="remember" type="checkbox" disabled /> Remember me (unavailable)</label><button type="submit">Login</button><button type="button" disabled title="Recovery is not configured">Forgot Password</button><div className="system-divider">or</div><button type="button" disabled title="Discord state and PKCE handshake is not configured">Login with Discord</button><button type="button" disabled title="Registration is not configured">Register</button><div className="system-qr" role="img" aria-label="Scan to Login placeholder. No code is encoded."><span aria-hidden="true">QR</span><small>Scan to Login</small></div></form>
     : <section aria-live="polite"><h1>{flow.stage === "session-check" ? "Checking session" : flow.stage === "garden-entry" ? "Garden entry unavailable" : "Connecting"}</h1><progress max="100" value={flow.progress?.percent ?? 10} /><p>{flow.stage === "garden-entry" ? "Waiting for the reviewed server-selected Garden contract." : flow.progress?.message ?? "Connecting to server"}</p></section>;
-  return <main className="system-stage"><button className="system-seated-key" onClick={removeKey}>Remove Awareness</button><div className="system-panel">{panel}{flow.error ? <p className="system-error" role="alert">{safeCopy[flow.error]}</p> : null}</div>{closing ? <span className="system-tube-close" /> : null}</main>;
+  return <main className="system-stage"><button className="system-seated-key" onClick={() => void removeKey()}>Remove Awareness</button><div className="system-panel">{panel}{flow.error ? <p className="system-error" role="alert">{safeCopy[flow.error]}</p> : null}</div>{closing ? <span className="system-tube-close" /> : null}</main>;
 }

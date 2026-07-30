@@ -29,6 +29,19 @@ test("unapproved System actions remain inert placeholders", () => {
   assert.doesNotMatch(experience, /gateway\.(register|recover|discord)/);
 });
 
+test("credentials and post-login failures stay client-safe", () => {
+  assert.match(experience, /const data = new FormData\(form\); form\.reset\(\)/);
+  assert.match(experience, /if \(!result\.ok\).*fail\(g, result\.code\)/s);
+  assert.doesNotMatch(app, /message: result\.message/);
+  assert.match(app, /message: safeGatewayMessage\(result\.code\)/);
+});
+
+test("logout requires a confirmed Gateway revocation before local reset", () => {
+  assert.match(experience, /const result = await gateway\.logout\(\)/);
+  assert.match(experience, /if \(!result\.ok\).*fail\(g, result\.code\).*return/s);
+  assert.match(app, /if \(!result\.ok\).*gatewayFailure\(result/s);
+});
+
 test("Awareness placement is accepted only by the Designer receptacle", () => {
   assert.match(experience, /<InventorySlot[^>]+onPlace=\{insertKey\}/);
   assert.doesNotMatch(experience, /system-splash"[^>]+onDrop=/);

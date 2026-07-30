@@ -13,7 +13,15 @@ function configuredGatewayUrl(): string {
 }
 
 function gatewayFailure(result: Exclude<GatewayResult<unknown>, { ok: true }>, projection: GatewaySessionProjection | null): ClientFlowState {
-  return { phase: "error", boundary: "gateway", message: result.message || "Knowhere is not open yet.", retryable: result.retryable, projection };
+  return { phase: "error", boundary: "gateway", message: safeGatewayMessage(result.code), retryable: result.retryable, projection };
+}
+
+function safeGatewayMessage(code: string): string {
+  if (code === "rate_limited") return "Please wait a moment before trying again.";
+  if (code === "session_expired" || code === "unauthenticated") return "Your session ended. Present Awareness again.";
+  if (code === "selection_conflict" || code === "character_unavailable" || code === "character_denied") return "That character is unavailable. Choose again.";
+  if (code === "world_entry_denied") return "Garden entry is unavailable right now.";
+  return "Knowhere is unavailable right now.";
 }
 
 function SeatedAwareness({ disabled, onRemove }: Readonly<{ disabled: boolean; onRemove: () => void }>) {
@@ -44,11 +52,11 @@ export function App() {
     if (result.code !== "aborted") setFlow(gatewayFailure(result, null));
   }
   async function continueFromProjection(projection: GatewaySessionProjection) { const next = stateFromSession(projection); if (next.phase !== "gateway-entry") { setFlow(next); return; } await enterGarden(next); }
-  async function resume(projection: GatewaySessionProjection) { setBusy(true); const result = await gateway.resumeSession(); setBusy(false); if (result.ok) await continueFromProjection(result.value); else if (result.code === "unauthenticated" || result.code === "session_expired") { setGateUnlocked(false); setFlow({ phase: "login", message: "Your session expired. Present Awareness again." }); } else setFlow({ phase: "resume-required", projection, message: result.message }); }
-  async function selectCharacter(projection: GatewaySessionProjection, characterId: string) { setBusy(true); const result = await gateway.selectCharacter(characterId, projection.selection.version); setBusy(false); if (result.ok) await continueFromProjection(result.value); else setFlow({ phase: "character-select", projection, message: result.message }); }
+  async function resume(projection: GatewaySessionProjection) { setBusy(true); const result = await gateway.resumeSession(); setBusy(false); if (result.ok) await continueFromProjection(result.value); else if (result.code === "unauthenticated" || result.code === "session_expired") { setGateUnlocked(false); setFlow({ phase: "login", message: "Your session expired. Present Awareness again." }); } else setFlow({ phase: "resume-required", projection, message: safeGatewayMessage(result.code) }); }
+  async function selectCharacter(projection: GatewaySessionProjection, characterId: string) { setBusy(true); const result = await gateway.selectCharacter(characterId, projection.selection.version); setBusy(false); if (result.ok) await continueFromProjection(result.value); else setFlow({ phase: "character-select", projection, message: safeGatewayMessage(result.code) }); }
   async function enterGarden(state: Extract<ClientFlowState, { phase: "gateway-entry" }>) { setFlow(state); setBusy(true); const entry = await gateway.enterWorld("garden"); if (!entry.ok) { setBusy(false); setFlow(gatewayFailure(entry, state.projection)); return; } const bootstrapping = beginWorldBootstrap(state, entry.value); setFlow(bootstrapping); if (bootstrapping.phase !== "world-bootstrap") { setBusy(false); return; } const bootstrap = await gateway.getWorldBootstrap(); setBusy(false); setFlow(completeWorldBootstrap(bootstrapping, bootstrap.ok ? bootstrap.value : null)); }
   function navigate(path: string) { window.history.pushState({}, "", path); setRoute(path); }
-  function logout() { if (logoutInFlight.current) return; setPoweringDown(true); logoutInFlight.current = (async () => { try { await Promise.all([gateway.logout(), new Promise((resolve) => window.setTimeout(resolve, 760))]); } finally { setFlow({ phase: "login", message: null }); setGateUnlocked(false); setPoweringDown(false); navigate("/"); logoutInFlight.current = null; } })(); }
+  function logout() { if (logoutInFlight.current) return; setPoweringDown(true); logoutInFlight.current = (async () => { const [result] = await Promise.all([gateway.logout(), new Promise((resolve) => window.setTimeout(resolve, 760))]); if (!result.ok) { setPoweringDown(false); setFlow(gatewayFailure(result, "projection" in flow ? flow.projection : null)); return; } setFlow({ phase: "login", message: null }); setGateUnlocked(false); setPoweringDown(false); navigate("/"); })().finally(() => { logoutInFlight.current = null; }); }
 
   if (new URLSearchParams(window.location.search).get("preview") === "staxel-voxel-female") return <CharacterAssetPreview />;
   if (!gateUnlocked || flow.phase === "restoring" || flow.phase === "login") return <SystemThemeExperience gateway={gateway} onSessionReady={async (projection) => { setGateUnlocked(true); await continueFromProjection(projection); }} />;
