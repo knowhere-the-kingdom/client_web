@@ -16,7 +16,8 @@ type InventoryItemCardProps = Readonly<{
   instance: InventoryItemInstanceV1;
   held?: boolean;
   disabled?: boolean;
-  onPickUp: (instanceId: string) => void;
+  cancelOnDragEnd?: boolean;
+  onPickUp: (instanceId: string, pointer?: Readonly<{ x: number; y: number; pointerType: string }>) => void;
   onCancel: () => void;
 }>;
 
@@ -35,7 +36,7 @@ type InventorySlotProps = Readonly<{
 
 type InventoryCssProperties = CSSProperties & Record<`--${string}`, string | number>;
 
-export function InventoryItemCard({ definition, instance, held = false, disabled = false, onPickUp, onCancel }: InventoryItemCardProps) {
+export function InventoryItemCard({ definition, instance, held = false, disabled = false, cancelOnDragEnd = true, onPickUp, onCancel }: InventoryItemCardProps) {
   const tooltipId = `inventory-tooltip-${instance.instanceId}`;
   const style: InventoryCssProperties = {
     "--item-x": 0,
@@ -47,7 +48,7 @@ export function InventoryItemCard({ definition, instance, held = false, disabled
   const beginNativeDrag = (event: DragEvent<HTMLButtonElement>) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData(INVENTORY_DRAG_TYPE, instance.instanceId);
-    onPickUp(instance.instanceId);
+    onPickUp(instance.instanceId, { x: event.clientX, y: event.clientY, pointerType: "mouse" });
   };
 
   return (
@@ -79,7 +80,7 @@ export function InventoryItemCard({ definition, instance, held = false, disabled
             onCancel();
           }
         }}
-        onDragEnd={onCancel}
+        onDragEnd={cancelOnDragEnd ? onCancel : undefined}
         onPointerCancel={onCancel}
         onTouchCancel={onCancel}
         onLostPointerCapture={onCancel}
@@ -124,6 +125,7 @@ export function InventorySlot({ definition, heldItem, className = "", children, 
   };
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    event.stopPropagation();
     const instanceId = event.dataTransfer.getData(INVENTORY_DRAG_TYPE);
     if (compatible && heldItem?.instance.instanceId === instanceId) onPlace(instanceId);
   };

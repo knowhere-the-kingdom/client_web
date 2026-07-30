@@ -1,8 +1,8 @@
 # Inventory Login Port Provenance
 
-This isolated port keeps inventory behavior in reusable `src/inventory/`
-primitives. `src/login/LoginExperience.tsx` only supplies the Awareness item,
-Designer receptacle, and the `awareness_placed` login event. The source of
+This port keeps inventory behavior in reusable `src/inventory/` primitives.
+`src/App.tsx` supplies the Awareness item, Designer receptacle, and the
+Gateway-mediated Garden prewarm transition. The source of
 truth for this table is the live legacy checkout at
 `R:\dev\prototypes\Inventory_System`.
 
@@ -16,9 +16,9 @@ truth for this table is the live legacy checkout at
 | Designer receptacle | `index.html:15-22`, `.item-slot.designer-slot`, `--slot-width:2`, `--slot-height:2`, `data-primary-hud-slot`, `data-accepted-item-types="Key"`, `aria-label="Designer Slot"` | `DESIGNER_RECEPTACLE` plus `InventorySlot`; exact 2x2/Key/label contract, with an explicit Awareness ID allowlist. |
 | Grid sizing and slot/item tokens | `design.md:14-21,38-42`; `css/inventory.css:1-34`, variables `--inventory-grid-unit`, `--inventory-slot-border-width`, quality colors, hover and valid-placement colors | `src/inventory/inventory-primitives.css`; reusable CSS variables and integer footprint sizing. |
 | Item frame and metadata | `design.md:751-758`; legacy `.inventory-item`, `data-item-quality`, catalog-derived footprint/icon/quantity | `InventoryItemCard`; data attributes, quality-colored border, icon, quantity, tooltip, keyboard/click pickup, and native drag hook. |
-| Slot compatibility and valid placement | `design.md:63-67,79-81,578-585`; legacy `data-accepted-item-types`, restricted Awareness Designer destination, green valid-placement cue | `slotAcceptsItem` and `InventorySlot`; bounded footprint/type/ID checks and compatible snap-target styling. |
-| Pickup, drag, drop, and cancel behavior | `scripts.js:5064-5104` (`startHolding`), `5123-5211` (pointer movement/drop), `5221-5242` (cancel), `5339-5364` (world/context actions) | `inventory-movement.ts` and `InventoryPrimitives.tsx`; exact-instance pickup, accepted-slot placement, keyboard activation, native drag, and fail-closed rejection. |
-| Awareness placement transition | `scripts.js:4861-4869`, `design.md:69-76`; Awareness in `.designer-slot` starts the login/dashboard transition | `LoginExperience.tsx` dispatches only `awareness_placed`; existing login reducer still gates submit, failure, success, and character selection. |
+| Slot compatibility and valid placement | `design.md:63-67,79-81,578-585`; `scripts.js:4358-4587`; restricted Awareness Designer destination, green valid-placement cue, nearest compatible target | `slotAcceptsItem`, `InventorySlot`, and `KeyGate.placeNearSlot`; bounded footprint/type/ID checks, compatible styling, and a capped 48–96 CSS-pixel forgiveness radius with a 1.3× pen/touch allowance. |
+| Pickup, drag, drop, and cancel behavior | `scripts.js:5064-5104` (`startHolding`), `5123-5211` (pointer movement/drop), `5221-5242` (cancel), `5339-5364` (world/context actions) | `inventory-movement.ts`, `InventoryPrimitives.tsx`, and `KeyGate`; exact-instance pickup, held cursor projection, accepted-slot placement, keyboard/click/native drag, Escape/cancel, and fail-closed rejection. |
+| Awareness placement transition | `scripts.js:4861-4869`, `design.md:69-76`; Awareness in `.designer-slot` starts the login/dashboard transition | `KeyGate` prewarms Garden only after accepted placement; login/session/character/world state remains Gateway-owned. |
 | Pointer/keyboard/touch cancellation and mobile hit target | `scripts.js:5221-5242,5339-5364` covers cancel/Escape paths; `design.md:14-21` defines the 32px visual grid | `InventoryItemCard` and `InventorySlot` clear on drag-end, pointer-cancel, touch-cancel, lost capture, and Escape. A transparent hit button is at least 44 CSS px while `.inventory-item__visual` preserves the legacy cell geometry; ordinary slots use `touch-action: manipulation` for scroll, and compatible held targets use `touch-action: none` for local placement. |
 | Awareness icon | `items/icons/awareness.svg`; legacy catalog path `items/icons/awareness.svg` | `public/inventory/items/icons/awareness.svg`; SHA-256 `48725cf85464141766316fe836b87833ef15650c92dd4a451f819a19a68ac3c0`, matching the legacy file. |
 | Designer keyhole asset | `items/icons/designer-keyhole.svg`; legacy `.designer-slot::before` and inserted-key mask references in `css/inventory.css:122-135,734-746` | `public/inventory/items/icons/designer-keyhole.svg`; SHA-256 `d217fa52aa330fe0dc7513c1d9a664ba221adf487ebfb26cc9a4b6b0276a5386`, matching the legacy file. |
@@ -28,13 +28,13 @@ truth for this table is the live legacy checkout at
 - The legacy DOM/script system is adapted into typed React primitives rather
   than copied wholesale. Inventory ownership stays in `src/inventory/`; login
   owns only the Awareness-to-login transition.
-- The port intentionally removes the legacy ritual/portal animation path,
-  including `portalController.keyPickedUp()` / `keyInserted()` behavior and
-  the cyan portal placeholder. No animation or gameplay authority is added.
-- The legacy Designer slot has a dashed grid and a hidden/revealed HUD-slot
-  lifecycle. The login slice uses a visible, solid-bordered receptacle with
-  the canonical keyhole asset; the obsolete dotted placeholder scaffold is
-  removed as required for this port.
+- The broader legacy ritual/portal renderer remains excluded. The bounded
+  item pickup, held-cursor, hidden/revealed Designer slot, compatible snap,
+  seated-key removal, and tube-close feedback are retained without granting
+  gameplay or authentication authority.
+- The Designer receptacle is absent until Awareness is held. Its reveal uses
+  a solid compatible-target treatment and the canonical keyhole asset; the
+  obsolete dotted placeholder scaffold remains removed.
 - The legacy source supports broader inventory destinations, profile
   persistence, world-drop/logout behavior, and full HUD presentation. Those
   behaviors are deliberately out of scope; this port exposes only the

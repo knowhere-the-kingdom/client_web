@@ -47,3 +47,26 @@ test("character selection exposes a placeholder creator with a back action", asy
   assert.match(appSource, />Back to characters<\/button>/);
   assert.match(appSource, /route === "\/characters\/new"/);
 });
+
+test("a valid restored session resumes through the selected Garden without showing login", async () => {
+  const { stateFromSession } = await import("../src/session/client-flow.ts");
+  const restored = stateFromSession({
+    protocolVersion: "1.0.0",
+    session: {
+      lifecycle: "active",
+      requiresExplicitResume: false,
+    },
+    selection: {
+      version: 2,
+      resumeStage: "world",
+      canEnterWorld: true,
+      selectedCharacterId: "character-1",
+      characters: selection.characters,
+    },
+  });
+  assert.deepEqual(restored, {
+    phase: "gateway-entry",
+    projection: restored.projection,
+    worldId: "garden",
+  });
+});

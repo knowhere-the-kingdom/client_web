@@ -100,7 +100,8 @@ test("reusable inventory markup retains compatibility selectors and accessible m
   assert.match(component, /onClick={placeHeld}/);
   assert.match(component, /onKeyDown={handleKeyDown}/);
   assert.match(component, /onDrop={handleDrop}/);
-  assert.match(component, /onDragEnd={onCancel}/);
+  assert.match(component, /onDragEnd={cancelOnDragEnd \? onCancel : undefined}/);
+  assert.match(component, /event\.stopPropagation\(\)/);
   assert.match(component, /onPointerCancel={onCancel}/);
   assert.match(component, /onTouchCancel={onCancel}/);
   assert.match(component, /onLostPointerCapture={onCancel}/);
@@ -138,8 +139,15 @@ test("cancel clears the complete local held-item state", () => {
 test("the restored key gate uses the inventory primitives without the obsolete dotted scaffold", async () => {
   const login = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  const inventoryStyles = await readFile(new URL("../src/inventory/inventory-primitives.css", import.meta.url), "utf8");
   assert.match(login, /InventoryItem/);
   assert.match(login, /InventorySlot/);
+  assert.match(login, /held \? <div className="inventory-login-designer__slot is-revealed"/);
+  assert.match(login, /placeNearSlot/);
+  assert.match(login, /inventory-cursor-item/);
+  assert.match(login, /<SeatedAwareness disabled={poweringDown} onRemove={logout} \/>/);
+  assert.match(inventoryStyles, /inventory-designer-slot-reveal/);
+  assert.match(inventoryStyles, /\.inventory-cursor-item/);
   assert.doesNotMatch(login, /className="designer-key"|designer-slot__mark/);
   assert.doesNotMatch(styles, /\.designer-key|border:\s*1px dashed/);
 });
