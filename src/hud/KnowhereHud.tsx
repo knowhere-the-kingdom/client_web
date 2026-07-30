@@ -2,10 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import demoSkills from "../data/demo-skills.json";
 import { initialBindings, initialCanvasItems, initialLogs } from "./demoData";
-import { CHARACTER_BLOCK_FACE_TARGET_PRESENTATION_EVENT, createActionbarItemAbilityContracts, createDemoSkillContracts, createItemAbilityContracts, createMovementActionsReadModel, findPublishedItemDefinition, characterController, gameplayMouseMode, useCharacterControllerState } from "../features/character-controller";
-import type { AbilitySlot, CharacterBlockFaceTargetPresentationEventDetail, CharacterBlockFaceTargetPromptKind, CharacterRenderEvent, MovementActionReadModel, PublishedItemDefinition, SkillRuntimeContract } from "../features/character-controller";
-import { EQUIPMENT_LAYOUT_V2_REGIONS } from "../editor/items";
-import type { EquipmentLayoutV2LaneDescriptor, EquipmentLayoutV2RegionDescriptor } from "../editor/items";
+import { CHARACTER_BLOCK_FACE_TARGET_PRESENTATION_EVENT, createActionbarItemAbilityContracts, createDemoSkillContracts, createItemAbilityContracts, findPublishedItemDefinition, characterController, gameplayMouseMode, useCharacterControllerState } from "../features/character-controller";
+import type { AbilitySlot, CharacterBlockFaceTargetPresentationEventDetail, CharacterBlockFaceTargetPromptKind, CharacterRenderEvent, PublishedItemDefinition, SkillRuntimeContract } from "../features/character-controller";
 import { AtlasCooldown, AtlasIcon, AtlasItemIcon, AtlasItemSlot, AtlasPanel, AtlasProgress } from "./AtlasPrimitives";
 import { PlayerMapPanel } from "./PlayerMapPanel";
 import { SettingsPanel } from "./SettingsPanel";
@@ -35,7 +33,15 @@ type ItemContext = {
   y: number;
 };
 
-const equipmentSlotKinds: ReadonlySet<string> = new Set<string>(EQUIPMENT_LAYOUT_V2_REGIONS.flatMap((region): string[] => region.lanes?.map((lane) => lane.id) ?? [region.id]));
+const prototypeEquipmentSlots = [
+  { id: "head", label: "Head", cols: 2, rows: 2, column: 2, row: 1, acceptedKinds: ["head"] },
+  { id: "left", label: "Left", cols: 2, rows: 3, column: 1, row: 2, acceptedKinds: ["glove-left", "weapon", "tool"] },
+  { id: "outfit", label: "Outfit", cols: 2, rows: 3, column: 2, row: 2, acceptedKinds: ["outfit"] },
+  { id: "right", label: "Right", cols: 2, rows: 3, column: 3, row: 2, acceptedKinds: ["glove-right", "weapon", "tool"] },
+  { id: "belt", label: "Belt", cols: 2, rows: 1, column: 2, row: 3, acceptedKinds: ["belt"] },
+  { id: "footwear", label: "Footwear", cols: 2, rows: 2, column: 2, row: 4, acceptedKinds: ["feet"] },
+] as const;
+const equipmentSlotKinds: ReadonlySet<string> = new Set(prototypeEquipmentSlots.map((slot) => slot.id));
 
 const abilityItem = (id: string, name: string, icon: string, note: string): CanvasItem => ({
   id,
@@ -63,8 +69,7 @@ const tomeAbilities = [
 ];
 const movementAbilityHotkeys = ["Shift", "DTAP", "Space", "Ctrl", "Alt"];
 const tomeAbilityHotkeys = ["Q", "F", "G"];
-const equipmentSlotLabels: ReadonlyMap<string, string> = new Map<string, string>(EQUIPMENT_LAYOUT_V2_REGIONS.flatMap((region): [string, string][] => region.lanes?.map((lane) => [lane.id, lane.label]) ?? [[region.id, region.label]]));
-const equipmentCellUnit = 3;
+const equipmentSlotLabels: ReadonlyMap<string, string> = new Map(prototypeEquipmentSlots.map((slot) => [slot.id, slot.label]));
 const demoRuntimeSkills = createDemoSkillContracts(demoSkills.skills as DemoSkill[]);
 const defaultMapPosition: HudMapPosition = { x: 0, z: 0, heading: 0 };
 const defaultMapMarkers: HudMapMarker[] = [
@@ -74,6 +79,25 @@ const defaultMapMarkers: HudMapMarker[] = [
   { id: "survey-party", kind: "party", label: "Garden survey party", x: -900, z: 1840, discovered: true },
 ];
 const compassHudItem: CanvasItem = { id: "hud-compass", type: "map", name: "Wayfinder Compass", w: 2, h: 2, icon: "target", note: "Toggle compass", loc: { kind: "limbo" } };
+const awarenessHudItem: CanvasItem = { id: "hud-awareness", type: "key", name: "Awareness", w: 2, h: 2, icon: "key", note: "Opens the Designer dashboard", loc: { kind: "limbo" } };
+
+function DesignerAwarenessSlot({ disabled, onLogout }: { disabled: boolean; onLogout: () => void }) {
+  const returnedToDesigner = useRef(false);
+  return (
+    <div className="prototype-designer-access" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); returnedToDesigner.current = true; }}>
+      <AtlasItemSlot
+        item={awarenessHudItem}
+        label="Designer"
+        size="utility"
+        className="prototype-designer-access__slot"
+        onClick={() => window.location.assign("/dashboard")}
+        onDragStart={() => { returnedToDesigner.current = false; }}
+        onDragEnd={() => { window.setTimeout(() => { if (!returnedToDesigner.current && !disabled) onLogout(); }, 0); }}
+      />
+      <span>Designer</span>
+    </div>
+  );
+}
 
 function CompassBar({ player, markers, onCollapse }: { player: HudMapPosition; markers: HudMapMarker[]; onCollapse: () => void }) {
   const [heading, setHeading] = useState(0);
@@ -300,7 +324,7 @@ function AccountPanel({ loggedIn, onSignOut, onClose }: { loggedIn: "User" | "Ad
 function BagGrid({ bag, items, draggedItemId, onDragStart, onDragEnd, onDropGrid, onClick, onContextMenu }: { bag: CanvasItem; items: CanvasItem[]; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onDropGrid: (event: DragEvent<HTMLDivElement>, x: number, y: number) => void; onClick: (item: CanvasItem) => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slotKind: string) => void }) {
   const cols = bag.grid?.cols ?? 6;
   const rows = bag.grid?.rows ?? 4;
-  const unit = 4;
+  const unit = bag.id === "stashVault" ? 2 : 4;
   return (
     <div className="atlas-bag-grid" data-bag-id={bag.id} style={{ width: `${cols * unit}rem`, height: `${rows * unit}rem`, gridTemplateColumns: `repeat(${cols}, ${unit}rem)`, gridTemplateRows: `repeat(${rows}, ${unit}rem)` }}>
       {Array.from({ length: cols * rows }).map((_, index) => {
@@ -357,95 +381,24 @@ function StashPanel({ bag, items, capacity, draggedItemId, onDragStart, onDragEn
   );
 }
 
-function EquipmentPanel({ activeCharacter, equipItem, movementActions, onDrop, draggedItemId, onDragStart, onDragEnd, onContextMenu, onClose }: { activeCharacter?: CanvasItem; equipItem: (slot: string) => CanvasItem | undefined; movementActions: MovementActionReadModel; onDrop: (event: DragEvent<HTMLButtonElement>, slot: string) => void; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slot: string) => void; onClose: () => void }) {
-  const panelRef = useRef<HTMLElement | null>(null);
-  const dragRef = useRef<{ pointerId: number; dx: number; dy: number } | null>(null);
-  const [position, setPosition] = useState(() => readEquipmentPanelPosition());
-  const leftRegions = EQUIPMENT_LAYOUT_V2_REGIONS.filter((region) => region.stack === "left").sort((a, b) => a.order - b.order);
-  const rightRegions = EQUIPMENT_LAYOUT_V2_REGIONS.filter((region) => region.stack === "right").sort((a, b) => a.order - b.order);
-  const movePanel = (x: number, y: number) => {
-    const rect = panelRef.current?.getBoundingClientRect();
-    const next = clampPanelPosition(x, y, rect?.width ?? 820, rect?.height ?? 620);
-    setPosition(next);
-    window.localStorage.setItem("knowhere.equipmentPanel.v2.position", JSON.stringify({ version: 2, ...next }));
-  };
-  const startDrag = (event: ReactPointerEvent<HTMLElement>) => {
-    const rect = panelRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    dragRef.current = { pointerId: event.pointerId, dx: event.clientX - rect.left, dy: event.clientY - rect.top };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const dragPanel = (event: ReactPointerEvent<HTMLElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    movePanel(event.clientX - drag.dx, event.clientY - drag.dy);
-  };
-  const stopDrag = (event: ReactPointerEvent<HTMLElement>) => {
-    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
-  };
+function EquipmentPanel({ activeCharacter, equipItem, onDrop, draggedItemId, onDragStart, onDragEnd, onContextMenu, onClose }: { activeCharacter?: CanvasItem; equipItem: (slot: string) => CanvasItem | undefined; onDrop: (event: DragEvent<HTMLButtonElement>, slot: string) => void; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slot: string) => void; onClose: () => void }) {
   return (
     <AtlasOverlay className="atlas-overlay-no-blur" onClose={onClose}>
-      <section ref={panelRef} className="atlas-panel atlas-equipment-panel atlas-equipment-panel-v2" role="dialog" aria-modal="true" aria-label={`${activeCharacter?.name ?? "No character"} equipment`} style={{ left: `${position.x}px`, top: `${position.y}px` }}>
-        <header className="atlas-panel-header atlas-equipment-drag-handle" onPointerDown={startDrag} onPointerMove={dragPanel} onPointerUp={stopDrag} onPointerCancel={stopDrag}>
-          <div><span className="atlas-eyebrow">Equipment Layout V2</span><h2>{activeCharacter?.name ?? "No character"} · Equipment</h2><small>Header drag handle · Escape closes · no earrings in V2</small></div>
+      <section className="atlas-panel atlas-equipment-panel atlas-equipment-panel-prototype" role="dialog" aria-modal="true" aria-label={`${activeCharacter?.name ?? "No character"} equipment`}>
+        <header className="atlas-panel-header atlas-equipment-prototype-header">
+          <div><span className="atlas-eyebrow">Character equipment</span><h2>{activeCharacter?.name ?? "No character"}</h2></div>
           <button type="button" className="atlas-close" onClick={onClose} aria-label="Close equipment"><AtlasIcon name="x" size={1} /></button>
         </header>
-        <div className="atlas-equipment-summary"><div className="atlas-equipment-avatar"><AtlasIcon name={activeCharacter?.icon ?? "person"} size={3} /></div><div><strong>Field loadout</strong><span>Two contract-backed equipment stacks with split glove lanes and separate ring cells.</span><AtlasProgress value={72} tone="accent" label="Loadout stability" detail="72% stable" /></div></div>
-        <div className="atlas-equipment-v2-body">
-          <EquipmentStack title="Left stack" regions={leftRegions} equipItem={equipItem} draggedItemId={draggedItemId} onDrop={onDrop} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={onContextMenu} />
-          <EquipmentStack title="Right stack" regions={rightRegions} equipItem={equipItem} draggedItemId={draggedItemId} onDrop={onDrop} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={onContextMenu} />
+        <div className="atlas-equipment-prototype-grid" aria-label="Equipment slots">
+          {prototypeEquipmentSlots.map((slot) => {
+            const item = equipItem(slot.id);
+            return <AtlasItemSlot key={slot.id} item={item} label={slot.label} size="grid" className={`atlas-equipment-slot atlas-equipment-prototype-slot atlas-equipment-prototype-slot--${slot.id}`} style={{ gridColumn: `${slot.column} / span 1`, gridRow: `${slot.row} / span 1`, "--equipment-slot-cols": slot.cols, "--equipment-slot-rows": slot.rows } as CSSProperties} dropState={draggedItemId ? "valid" : undefined} onDrop={(event) => onDrop(event, slot.id)} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={(event) => item && onContextMenu(event, item, slot.id)} />;
+          })}
+          <div className="atlas-equipment-prototype-avatar" aria-hidden="true"><AtlasIcon name={activeCharacter?.icon ?? "person"} size={3} /></div>
         </div>
-        <section className="atlas-equipment-group atlas-movement-actions"><h3>{movementActions.sectionLabel}</h3><div className="atlas-movement-action-row">{movementActions.actions.map((action) => <MovementActionSlot key={action.id} action={action} />)}</div></section>
       </section>
     </AtlasOverlay>
   );
-}
-
-function EquipmentStack({ title, regions, equipItem, draggedItemId, onDrop, onDragStart, onDragEnd, onContextMenu }: { title: string; regions: readonly EquipmentLayoutV2RegionDescriptor[]; equipItem: (slot: string) => CanvasItem | undefined; draggedItemId: string | null; onDrop: (event: DragEvent<HTMLButtonElement>, slot: string) => void; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slot: string) => void }) {
-  return <section className="atlas-equipment-stack"><h3>{title}</h3>{regions.map((region) => <EquipmentRegion key={region.id} region={region} equipItem={equipItem} draggedItemId={draggedItemId} onDrop={onDrop} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={onContextMenu} />)}</section>;
-}
-
-function EquipmentRegion({ region, equipItem, draggedItemId, onDrop, onDragStart, onDragEnd, onContextMenu }: { region: EquipmentLayoutV2RegionDescriptor; equipItem: (slot: string) => CanvasItem | undefined; draggedItemId: string | null; onDrop: (event: DragEvent<HTMLButtonElement>, slot: string) => void; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slot: string) => void }) {
-  const lanes = region.lanes ?? null;
-  const gridStyle = { gridTemplateColumns: `repeat(${region.grid.cols}, ${equipmentCellUnit}rem)`, gridTemplateRows: `repeat(${region.grid.rows}, ${equipmentCellUnit}rem)` } as CSSProperties;
-  return (
-    <div className="atlas-equipment-region" data-region-id={region.id}>
-      <span>{region.label}</span>
-      <div className="atlas-equipment-region-grid" style={gridStyle}>
-        {lanes ? lanes.map((lane) => <EquipmentLaneSlot key={lane.id} lane={lane} item={equipItem(lane.id)} draggedItemId={draggedItemId} onDrop={onDrop} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={onContextMenu} />) : <EquipmentRegionSlot region={region} item={equipItem(region.id)} draggedItemId={draggedItemId} onDrop={onDrop} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={onContextMenu} />}
-      </div>
-    </div>
-  );
-}
-
-function EquipmentRegionSlot({ region, item, draggedItemId, onDrop, onDragStart, onDragEnd, onContextMenu }: { region: EquipmentLayoutV2RegionDescriptor; item?: CanvasItem; draggedItemId: string | null; onDrop: (event: DragEvent<HTMLButtonElement>, slot: string) => void; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slot: string) => void }) {
-  return <AtlasItemSlot item={item} label={region.label} size="grid" className="atlas-equipment-slot atlas-equipment-slot-v2" style={{ gridColumn: `span ${region.grid.cols}`, gridRow: `span ${region.grid.rows}` }} dropState={draggedItemId ? "valid" : undefined} onDrop={(event) => onDrop(event, region.id)} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={(event) => item && onContextMenu(event, item, region.id)} />;
-}
-
-function EquipmentLaneSlot({ lane, item, draggedItemId, onDrop, onDragStart, onDragEnd, onContextMenu }: { lane: EquipmentLayoutV2LaneDescriptor; item?: CanvasItem; draggedItemId: string | null; onDrop: (event: DragEvent<HTMLButtonElement>, slot: string) => void; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slot: string) => void }) {
-  return <AtlasItemSlot item={item} label={lane.label} size="grid" className="atlas-equipment-slot atlas-equipment-slot-v2" style={{ gridColumn: `${lane.origin.x + 1} / span ${lane.grid.cols}`, gridRow: `${lane.origin.y + 1} / span ${lane.grid.rows}` }} dropState={draggedItemId ? "valid" : undefined} onDrop={(event) => onDrop(event, lane.id)} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={(event) => item && onContextMenu(event, item, lane.id)} />;
-}
-
-function MovementActionSlot({ action }: { action: MovementActionReadModel["actions"][number] }) {
-  const cooldownSeconds = action.cooldown ? action.cooldown.totalMs / 1000 : 0;
-  const cooldownRemaining = action.cooldown ? action.cooldown.remainingMs / 1000 : 0;
-  const item = abilityItem(action.id, action.label, action.icon, action.disabledReason ?? action.binding);
-  const displayItem = { ...item, stats: cooldownSeconds > 0 ? { cooldown: cooldownSeconds, cooldownRemaining } : undefined };
-  return <div className={`atlas-movement-action ${action.active ? "is-active" : ""} ${action.disabled ? "is-disabled" : ""}`.trim()} title={action.disabledReason ?? `${action.label}: ${action.binding}`}><AtlasItemSlot item={displayItem} label={action.label} size="action" selected={action.selected} /><small>{action.binding}</small>{action.charges ? <span>{action.charges.current}/{action.charges.max}</span> : null}</div>;
-}
-
-function readEquipmentPanelPosition(): { x: number; y: number } {
-  const fallback = () => clampPanelPosition((window.innerWidth - 820) / 2, 48, 820, 620);
-  try {
-    const stored = JSON.parse(window.localStorage.getItem("knowhere.equipmentPanel.v2.position") ?? "null") as { version?: number; x?: number; y?: number } | null;
-    if (stored?.version === 2 && Number.isFinite(stored.x) && Number.isFinite(stored.y)) return clampPanelPosition(stored.x ?? 0, stored.y ?? 0, 820, 620);
-  } catch { return fallback(); }
-  return fallback();
-}
-
-function clampPanelPosition(x: number, y: number, width: number, height: number): { x: number; y: number } {
-  const pad = 8;
-  return { x: Math.max(pad, Math.min(x, window.innerWidth - width - pad)), y: Math.max(pad, Math.min(y, window.innerHeight - height - pad)) };
 }
 
 function TomePanel({ onClose }: { onClose: () => void }) {
@@ -480,11 +433,7 @@ function isCompatible(item: CanvasItem, slotKind: string) {
 }
 
 function equipmentAcceptedKinds(slotKind: string): readonly string[] {
-  const region = EQUIPMENT_LAYOUT_V2_REGIONS.find((entry) => entry.id === slotKind);
-  if (region) return region.acceptedKinds;
-  const laneRegion = EQUIPMENT_LAYOUT_V2_REGIONS.find((entry) => entry.lanes?.some((lane) => lane.id === slotKind));
-  const lane = laneRegion?.lanes?.find((entry) => entry.id === slotKind);
-  return lane?.acceptedKinds ?? [];
+  return prototypeEquipmentSlots.find((slot) => slot.id === slotKind)?.acceptedKinds ?? [];
 }
 
 function equipmentKindForItem(item: CanvasItem): string | null {
@@ -492,7 +441,7 @@ function equipmentKindForItem(item: CanvasItem): string | null {
   if (item.type === "ring") return "ring";
   if (item.type === "glasses") return "face";
   if (item.type === "feet") return "feet";
-  if (["head", "outfit", "belt", "neck"].includes(item.type)) return item.type;
+  if (["head", "outfit", "belt", "neck", "weapon", "tool"].includes(item.type)) return item.type;
   return null;
 }
 
@@ -531,6 +480,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const [crosshairPresentation, setCrosshairPresentation] = useState<CrosshairPresentation>(defaultCrosshairPresentation);
   const [mapPosition, setMapPosition] = useState<HudMapPosition>(defaultMapPosition);
+  const [chatOpen, setChatOpen] = useState(true);
   const [chatDraft, setChatDraft] = useState("");
   const chatInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -540,7 +490,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const activeCharacter = hudItem("character");
   const mapItem = hudItem("map");
   const equipItem = (slot: string) => allItems.find((item) => item.loc.kind === "equip" && item.loc.charId === activeCharacter?.id && item.loc.slot === slot);
-  const actionSlots = useMemo(() => Array.from({ length: 9 }, (_, index) => hudItem(`action${index}`)), [allItems]);
+  const actionSlots = useMemo(() => Array.from({ length: 12 }, (_, index) => hudItem(`action${index}`)), [allItems]);
   const selectedHandItem = actionSlots[selectedAction];
   const selectedItemDefinition = useMemo(() => findPublishedItemDefinition(selectedHandItem, publishedItems), [selectedHandItem?.id, selectedHandItem?.name, publishedItems]);
   const itemAbilityContracts = useMemo(
@@ -555,7 +505,6 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   const lunchbox = hudItem("lunchbox");
   const tome = hudItem("tome");
   const bagSlotCount = useMemo(() => Math.min(20, 4 + (equipItem("belt")?.stats?.bagSlots ?? 0) + (equipItem("outfit")?.stats?.bagSlots ?? 0)), [allItems, activeCharacter?.id]);
-  const movementActions = useMemo(() => createMovementActionsReadModel({ state: controllerState, skills: [...demoRuntimeSkills, ...publishedSkills, ...actionbarItemAbilityContracts, ...itemAbilityContracts], bindings, now: abilityClock }), [actionbarItemAbilityContracts, abilityClock, bindings, controllerState, itemAbilityContracts, publishedSkills]);
 
   const appendLog = (channel: HudLogEntry["channel"], text: string, severity: HudLogEntry["severity"]) => {
     logSequence.current += 1;
@@ -582,6 +531,18 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     if (item.type === "skill") characterController.spendSpirit(6);
     const action = item.leftClickAction ? item.leftClickAction.replace(/^./, (value) => value.toUpperCase()) : "Used";
     appendLog("spirit", `${action}: ${item.name}`, "info");
+  };
+
+  const activateHandAction = (side: "left" | "right") => {
+    const slot: AbilitySlot = side === "left" ? "item.leftHand" : "item.rightHand";
+    const label = side === "left" ? "Left Action" : "Right Action";
+    if (!selectedHandItem) {
+      appendLog("spirit", `${label} is empty`, "warning");
+      return;
+    }
+    if (!characterController.activateSlot(slot)) {
+      appendLog("spirit", `${selectedHandItem.name} ${label.toLowerCase()} blocked`, "warning");
+    }
   };
 
   const slotDisplayName = (slotKind: string) => slotKind.startsWith("action") ? `Action ${Number(slotKind.replace("action", "")) + 1}` : equipmentSlotLabels.get(slotKind) ?? slotKind.replace(/^./, (value) => value.toUpperCase());
@@ -751,15 +712,24 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         event.preventDefault();
         activateAction(Number(event.key) - 1);
       }
-      if (event.key.toLowerCase() === "t") {
+      const chatBinding = bindings.find((binding) => binding.id === "open-chat");
+      const chatKeys = [chatBinding?.primary, chatBinding?.secondary]
+        .filter((value): value is string => Boolean(value) && value !== "Unbound")
+        .map((value) => value.toLowerCase());
+      if (chatKeys.includes(event.key.toLowerCase())) {
         event.preventDefault();
-        chatInputRef.current?.focus();
+        setChatOpen((current) => {
+          const next = !current;
+          if (next) window.requestAnimationFrame(() => chatInputRef.current?.focus());
+          else chatInputRef.current?.blur();
+          return next;
+        });
         return;
       }
       if (event.key.toLowerCase() === "b" && backpack) {
         event.preventDefault();
         setOpenPanel(null);
-        setOpenBagId((current) => current === backpack.id ? null : backpack.id);
+        setOpenBagId((current) => current === "stashVault" ? null : "stashVault");
         return;
       }
       if (event.key.toLowerCase() === "l" && lunchbox) {
@@ -781,7 +751,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [backpack, controllerState.health.maximum, controllerState.lifecycle, items, lunchbox, mapItem, selectedAction]);
+  }, [backpack, bindings, controllerState.health.maximum, controllerState.lifecycle, items, lunchbox, mapItem, selectedAction]);
 
   useEffect(() => {
     const handleTab = (event: KeyboardEvent) => {
@@ -864,7 +834,14 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   };
 
   const moveItem = async (itemId: string, destination: CanvasItemLocation) => {
-    if (projection && onInventoryMove) {
+    const isScopedStashDemo = itemId.startsWith("stash");
+    if (!isScopedStashDemo && destination.kind === "grid" && destination.bagId === "stashVault") {
+      appendLog("system", "The prototype stash cannot accept an authoritative inventory item.", "warning");
+      setDraggedItemId(null);
+      setDropTarget(null);
+      return false;
+    }
+    if (projection && onInventoryMove && !isScopedStashDemo) {
       const confirmed=await onInventoryMove(itemId,destination,projection.projectionRevision);
       if(!confirmed){appendLog("system","Inventory changed elsewhere; authoritative state restored.","warning");setDraggedItemId(null);setDropTarget(null);return false;}
     }
@@ -922,7 +899,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
     else if (item.type === "account") setPanel("account");
     else if (item.type === "spirit") setSpiritOpen((current) => !current);
     else if (item.type === "character") setPanel("equipment");
-    else if (item.type === "bag") setOpenBagId((current) => current === item.id ? null : item.id);
+    else if (item.type === "bag") { const bagId = item.id === "fieldpack" ? "stashVault" : item.id; setOpenBagId((current) => current === bagId ? null : bagId); }
     else if (item.type === "tome") setPanel("tome");
     else if (item.type === "map") { setOpenPanel(null); setOpenBagId(null); setMapOpen(true); }
     else if (item.type === "settings") window.location.assign("/dashboard");
@@ -961,7 +938,7 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
   return (
     <div className={`hud-root atlas-hud prototype-hud${poweringDown ? " atlas-hud-powering-down" : ""}`} aria-busy={poweringDown} onContextMenu={(event) => { event.preventDefault(); setContextMenu(null); }}>
       <header className="atlas-topbar prototype-hud__top">
-        <div className="atlas-utility-group prototype-hud__designer"><div className="atlas-settings-slot">{renderSlot("settings", "Dashboard", hudItem("settings"), "utility", "Esc")}</div></div>
+        <div className="atlas-utility-group prototype-hud__designer"><DesignerAwarenessSlot disabled={poweringDown} onLogout={onLogout} /></div>
         {compassOpen
           ? <CompassBar player={mapPosition} markers={defaultMapMarkers} onCollapse={() => setCompassOpen(false)} />
           : <div className="prototype-hud__compass-slot"><AtlasItemSlot item={compassHudItem} label="Compass" size="utility" hotkey="N" onClick={() => setCompassOpen(true)} /></div>}
@@ -985,10 +962,6 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         </div>
       </section>
 
-      <section className="prototype-hud__creature" aria-label="Character slot">
-        {renderSlot("character", "Character", activeCharacter, "utility", "C")}
-      </section>
-
       <section className="prototype-hud__knowledge" aria-label="Knowledge and skills">
         <div className="atlas-mini-ability-group prototype-hud__knowledge-skills" role="group" aria-label="Knowledge skills">
           {tomeAbilities.map((ability, index) => { const slot = abilitySlotForHud(ability.id); return <AtlasItemSlot key={ability.id} item={slot ? withAbilityCooldown(ability, slot) : ability} label={ability.name} size={index === 0 ? "small" : "micro"} hotkey={tomeAbilityHotkeys[index]} onClick={() => { if (slot) characterController.activateSlot(slot); }} />; })}
@@ -996,22 +969,41 @@ export function KnowhereHud({ accountLabel, projection = null, poweringDown = fa
         {renderSlot("tome", "Knowledge", tome, "utility", "U")}
       </section>
 
-      <main className="atlas-center-stage"><Crosshair presentation={crosshairPresentation} /><EventLog channel="player" align="left" logs={logs} /><EventLog channel="system" align="center" logs={logs} /><EventLog channel="spirit" align="right" logs={logs} /></main>
+      <main className="atlas-center-stage"><Crosshair presentation={crosshairPresentation} /><EventLog channel="player" align="left" logs={logs} /><EventLog channel="spirit" align="right" logs={logs} /></main>
 
-      <form className="atlas-chat" onSubmit={(event) => { event.preventDefault(); const message = chatDraft.trim(); if (!message) return; appendLog("system", `Message sent: ${message}`, "info"); setChatDraft(""); chatInputRef.current?.blur(); }}>
-        <label className="sr-only" htmlFor="atlas-chat-input">Chat message</label>
-        <input ref={chatInputRef} id="atlas-chat-input" value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.currentTarget.blur(); } }} placeholder="Type a message…" maxLength={180} />
-        <button type="submit" aria-label="Send message"><AtlasIcon name="chevron" size={0.9} /></button>
-      </form>
+      {chatOpen ? <section className="atlas-chat-stack" aria-label="Chat">
+        <EventLog channel="system" align="center" logs={logs} />
+        <form className="atlas-chat" onSubmit={(event) => { event.preventDefault(); const message = chatDraft.trim(); if (!message) return; appendLog("system", `Message sent: ${message}`, "info"); setChatDraft(""); }}>
+          <label className="sr-only" htmlFor="atlas-chat-input">Chat message</label>
+          <input ref={chatInputRef} id="atlas-chat-input" value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); setChatOpen(false); event.currentTarget.blur(); } }} placeholder="Type a message…" maxLength={180} />
+          <button type="submit" aria-label="Send message"><AtlasIcon name="chevron" size={0.9} /></button>
+        </form>
+      </section> : null}
 
-      <nav className="atlas-actionbar prototype-hud__actionbar" aria-label="Action bar">{actionSlots.map((item, index) => renderSlot(`action${index}`, `Action ${index + 1}`, item, "action", String(index + 1)))}</nav>
+      <nav className="atlas-actionbar prototype-hud__actionbar" aria-label="Character and action slots">
+        <div className="prototype-hud__action-side prototype-hud__action-side--left">
+          <div className="prototype-hud__action-grid" aria-label="Odd action slots">
+            {[0, 2, 4, 6, 8, 10].map((index) => renderSlot(`action${index}`, `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
+          </div>
+          <AtlasItemSlot item={selectedHandItem} label="Left Action" size="action" hotkey="LMB" className="prototype-hud__hand-action" onClick={() => activateHandAction("left")} />
+        </div>
+        <div className="prototype-hud__character-anchor" aria-label="Character slot">
+          {renderSlot("character", "Character", activeCharacter, "utility", "C")}
+        </div>
+        <div className="prototype-hud__action-side prototype-hud__action-side--right">
+          <AtlasItemSlot item={selectedHandItem} label="Right Action" size="action" hotkey="RMB" className="prototype-hud__hand-action" onClick={() => activateHandAction("right")} />
+          <div className="prototype-hud__action-grid" aria-label="Even action slots">
+            {[1, 3, 5, 7, 9, 11].map((index) => renderSlot(`action${index}`, `Action ${index + 1}`, actionSlots[index], "action", String(index + 1)))}
+          </div>
+        </div>
+      </nav>
 
       {openBagId && items[openBagId] ? <StashPanel bag={items[openBagId]} items={openBagId === "spiritBox1" ? allItems.filter((item) => item.type === "character").map((item, index) => ({ ...item, loc: { kind: "grid", bagId: "spiritBox1", x: index % 4, y: Math.floor(index / 4) } })) : gridItems(openBagId)} capacity={bagSlotCount} draggedItemId={draggedItemId} onDragStart={(item) => { setDraggedItemId(item.id); setDropTarget(`grid:${openBagId}`); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDropGrid={(event, x, y) => handleGridDrop(event, x, y)} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setOpenBagId(null)} /> : null}
       {spiritOpen ? <StashPanel bag={items.spiritBox1} items={allItems.filter((item) => item.type === "character").map((item, index) => ({ ...item, loc: { kind: "grid", bagId: "spiritBox1", x: index % 4, y: Math.floor(index / 4) } }))} capacity={4} draggedItemId={draggedItemId} onDragStart={(item) => setDraggedItemId(item.id)} onDragEnd={() => setDraggedItemId(null)} onDropGrid={(event) => event.preventDefault()} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setSpiritOpen(false)} /> : null}
 
       {openPanel === "login" ? <LoginPanel onLogin={loginAs} onClose={() => setPanel(null)} /> : null}
       {openPanel === "account" ? <AccountPanel loggedIn={loggedIn} onSignOut={signOut} onClose={() => setPanel(null)} /> : null}
-      {openPanel === "equipment" ? <EquipmentPanel activeCharacter={activeCharacter} equipItem={equipItem} movementActions={movementActions} onDrop={handleFixedDrop} draggedItemId={draggedItemId} onDragStart={(item) => setDraggedItemId(item.id)} onDragEnd={() => setDraggedItemId(null)} onContextMenu={openItemContextMenu} onClose={() => setPanel(null)} /> : null}
+      {openPanel === "equipment" ? <EquipmentPanel activeCharacter={activeCharacter} equipItem={equipItem} onDrop={handleFixedDrop} draggedItemId={draggedItemId} onDragStart={(item) => setDraggedItemId(item.id)} onDragEnd={() => setDraggedItemId(null)} onContextMenu={openItemContextMenu} onClose={() => setPanel(null)} /> : null}
       {openPanel === "tome" ? <TomePanel onClose={() => setPanel(null)} /> : null}
       {openPanel === "settings" ? <SettingsPanel bindings={bindings} onBindingsChange={setBindings} onClose={() => setPanel(null)} /> : null}
       {mapOpen && mapItem ? <PlayerMapPanel item={mapItem} player={mapPosition} markers={defaultMapMarkers} onClose={() => setMapOpen(false)} /> : null}

@@ -138,7 +138,17 @@ export type CharacterControllerState = Readonly<{
   }>;
 }>;
 
-export type CharacterBindings = ReadonlyArray<Pick<SettingsBinding, "id" | "primary" | "secondary">>;
+export type CharacterBindings = ReadonlyArray<
+  Pick<SettingsBinding, "id" | "primary" | "secondary">
+  & Partial<Pick<SettingsBinding, "gamepad">>
+>;
+
+export type CharacterActionSignal = Readonly<{
+  actionId: CharacterActionId;
+  phase: "pressed" | "released";
+  value?: number;
+  source?: "touch" | "gamepad" | "accessibility";
+}>;
 
 export type CharacterControllerTimers = Readonly<{
   abilityPhaseRemainingMs: number;
@@ -157,6 +167,8 @@ export type CharacterControllerFrame = Readonly<{
   timers: CharacterControllerTimers;
   dodge: Readonly<{ direction: MovementDirection; progress: number }> | null;
   verticalVelocity: number;
+  verticalIntent: number;
+  jumpRequested: boolean;
 }>;
 
 export type MovementActionId = "movement.sprint" | "movement.dodge" | "movement.jump" | "movement.crouch" | "movement.flight";

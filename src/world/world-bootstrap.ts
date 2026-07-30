@@ -34,7 +34,7 @@ function isOpaque(value: unknown, maxLength = 256): value is string {
 function isRfc3339(value: unknown): value is string {
   if (typeof value !== "string" || !value.includes("T")) return false;
   const parsed = Date.parse(value);
-  return Number.isFinite(parsed);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
 }
 
 function hasExactKeys(value: object, keys: readonly string[]): boolean {
@@ -52,6 +52,9 @@ function isGardenSceneProjection(value: unknown): value is GardenSceneProjection
   const landscape = scene.voxelLandscape as Record<string, unknown>;
   const skybox = scene.skybox as Record<string, unknown>;
   const sun = scene.sun as Record<string, unknown>;
+  const palette = sun.palette;
+  if (!palette || typeof palette !== "object") return false;
+  const sunPalette = palette as Record<string, unknown>;
   return scene.schemaVersion === 1
     && scene.sceneId === "garden-alpha-v1"
     && hasExactKeys(landscape, ["chunkRadius", "chunkSize", "diffuse", "emissive", "kind", "specular", "voxelSizeMeters"])
@@ -68,10 +71,42 @@ function isGardenSceneProjection(value: unknown): value is GardenSceneProjection
     && skybox.segments === 24
     && skybox.dayColor === "#55a9ed"
     && skybox.nightColor === "#020718"
-    && hasExactKeys(sun, ["dayDurationSeconds", "kind", "maxIntensity", "nightDurationSeconds", "sunlight"])
+    && hasExactKeys(sun, [
+      "assetId",
+      "assetVersion",
+      "cycleEpoch",
+      "cycleOffsetSeconds",
+      "dayDurationSeconds",
+      "diameter",
+      "kind",
+      "maxIntensity",
+      "nightDurationSeconds",
+      "palette",
+      "quality",
+      "scheduleRevision",
+      "seed",
+      "sunlight",
+    ])
     && sun.kind === "orbiting-mythic-sun"
-    && sun.dayDurationSeconds === 60
-    && sun.nightDurationSeconds === 60
+    && sun.assetId === "mythic-sun"
+    && sun.assetVersion === 1
+    && sun.diameter === 52
+    && sun.quality === "medium"
+    && sun.seed === 17
+    && hasExactKeys(sunPalette, ["ember", "heart", "plasma", "shadow"])
+    && sunPalette.heart === "#ffe29a"
+    && sunPalette.plasma === "#ff8a3d"
+    && sunPalette.ember === "#b84a32"
+    && sunPalette.shadow === "#3a1820"
+    && isPositiveInteger(sun.dayDurationSeconds)
+    && (sun.dayDurationSeconds as number) <= 86_400
+    && isPositiveInteger(sun.nightDurationSeconds)
+    && (sun.nightDurationSeconds as number) <= 86_400
+    && isRfc3339(sun.cycleEpoch)
+    && typeof sun.cycleOffsetSeconds === "number"
+    && Number.isFinite(sun.cycleOffsetSeconds)
+    && sun.cycleOffsetSeconds >= 0
+    && isPositiveInteger(sun.scheduleRevision)
     && sun.sunlight === "#fff3d0"
     && sun.maxIntensity === 1.25;
 }

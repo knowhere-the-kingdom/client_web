@@ -75,8 +75,22 @@ export type GardenSceneProjectionV1 = Readonly<{
   }>;
   sun: Readonly<{
     kind: "orbiting-mythic-sun";
-    dayDurationSeconds: 60;
-    nightDurationSeconds: 60;
+    assetId: "mythic-sun";
+    assetVersion: 1;
+    diameter: 52;
+    quality: "medium";
+    seed: 17;
+    palette: Readonly<{
+      heart: "#ffe29a";
+      plasma: "#ff8a3d";
+      ember: "#b84a32";
+      shadow: "#3a1820";
+    }>;
+    dayDurationSeconds: number;
+    nightDurationSeconds: number;
+    cycleEpoch: string;
+    cycleOffsetSeconds: number;
+    scheduleRevision: number;
     sunlight: "#fff3d0";
     maxIntensity: 1.25;
   }>;

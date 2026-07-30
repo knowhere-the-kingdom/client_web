@@ -9,14 +9,15 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
-import { VolumetricLightScatteringPostProcess } from "@babylonjs/core/PostProcesses/volumetricLightScatteringPostProcess";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { characterController, gameplayMouseMode, routeCharacterBlockFaceTargetSource } from "../features/character-controller";
+import type { CharacterActionSignal } from "../features/character-controller";
 import { loadActiveStatefulWorld } from "./statefulWorldRuntime";
 import type { GardenSceneProjectionV1 } from "../api/gateway-contract";
+import { createMythicSun } from "./mythic-sun";
 
 const SEA_LEVEL = 0;
 const SOLID_BASE = -42;
@@ -27,9 +28,13 @@ const TERRAIN_CHUNK_SEGMENTS = 12;
 const TERRAIN_CHUNK_RADIUS = Math.ceil(TERRAIN_SIZE / TERRAIN_CHUNK_SIZE / 2);
 const TERRAIN_VERTICAL_SCALE = 4.85;
 const PLAYER_EYE_HEIGHT = 2;
-const BASE_CAMERA_SPEED = 1.8;
-const MAX_SPRINT_MULTIPLIER = 10;
+const BASE_CAMERA_SPEED = 6;
+const MAX_SPRINT_MULTIPLIER = 10 / 6;
 const DODGE_SPEED = 52;
+const PLAYER_GRAVITY = -18;
+const PLAYER_JUMP_IMPULSE = 6.2;
+const PLAYER_FLIGHT_VERTICAL_SPEED = 9;
+const CROUCH_EYE_HEIGHT = 1.2;
 const OCEAN_SIZE = 240000;
 const DEFAULT_MOUSE_X = 50;
 const DEFAULT_MOUSE_Y = 44;
@@ -38,6 +43,20 @@ const LOOK_PITCH_RADIANS = 2.15;
 const MIN_CAMERA_PITCH = -Math.PI / 2 + 0.05;
 const MAX_CAMERA_PITCH = Math.PI / 2 - 0.05;
 export const WORLD_MAP_ZOOM_STEPS = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 24000, 48000] as const;
+
+export function sunOrbitRadiansAt(
+  schedule: GardenSceneProjectionV1["sun"],
+  nowMs = Date.now(),
+): number {
+  const day = schedule.dayDurationSeconds;
+  const night = schedule.nightDurationSeconds;
+  const cycle = day + night;
+  const elapsedSeconds = (nowMs - Date.parse(schedule.cycleEpoch)) / 1000 + schedule.cycleOffsetSeconds;
+  const elapsedInCycle = ((elapsedSeconds % cycle) + cycle) % cycle;
+  return elapsedInCycle < day
+    ? (elapsedInCycle / day) * Math.PI
+    : Math.PI + ((elapsedInCycle - day) / night) * Math.PI;
+}
 
 export type WorldgenGeneratorConfig = {
   seed: number;
@@ -1238,12 +1257,13 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
     scene.activeCamera = camera;
     camera.attachControl(canvas, true);
     camera.inputs.removeByType("FreeCameraMouseInput");
+    camera.inputs.removeByType("FreeCameraKeyboardMoveInput");
     camera.speed = BASE_CAMERA_SPEED;
     camera.angularSensibility = 2100;
-    camera.keysUp = [87];
-    camera.keysDown = [83];
-    camera.keysLeft = [65];
-    camera.keysRight = [68];
+    camera.keysUp = [];
+    camera.keysDown = [];
+    camera.keysLeft = [];
+    camera.keysRight = [];
     camera.minZ = 0.05;
     camera.maxZ = 30000;
     camera.checkCollisions = false;
@@ -1272,36 +1292,23 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
     ambient.diffuse = new Color3(0.68, 0.78, 0.74);
     ambient.intensity = 1.05;
 
-    const sun = MeshBuilder.CreateSphere("distant-volumetric-sun", { diameter: 52, segments: 48 }, scene);
-    sun.alwaysSelectAsActiveMesh = true;
-    sun.position.set(0, 5200, 7600);
-    sun.renderingGroupId = 0;
-    const sunMaterial = new StandardMaterial("orbiting-neon-sun-material", scene);
-    sunMaterial.disableLighting = true;
+    const sunAsset = createMythicSun(scene, {
+      diameter: projection.sun.diameter,
+      quality: projection.sun.quality,
+      seed: projection.sun.seed,
+      palette: projection.sun.palette,
+    });
+    sunAsset.meshes.forEach((mesh) => {
+      mesh.renderingGroupId = 0;
+    });
     const projectedSunlight = Color3.FromHexString(projection.sun.sunlight);
-    sunMaterial.diffuseColor = projectedSunlight;
-    sunMaterial.emissiveColor = projectedSunlight;
-    sunMaterial.specularColor = new Color3(1, 0.95, 0.62);
-    sun.material = sunMaterial;
-
-    const sunHalo = MeshBuilder.CreateSphere("distant-volumetric-sun-visible-halo", { diameter: 92, segments: 48 }, scene);
-    sunHalo.parent = sun;
-    const haloMaterial = new StandardMaterial("distant-volumetric-sun-visible-halo-material", scene);
-    haloMaterial.disableLighting = true;
-    haloMaterial.diffuseColor = new Color3(1, 0.72, 0.28);
-    haloMaterial.emissiveColor = new Color3(1.35, 0.78, 0.24);
-    haloMaterial.alpha = 0.24;
-    haloMaterial.specularColor = Color3.Black();
-    sunHalo.material = haloMaterial;
 
     const sunLight = new PointLight("orbiting-sun-point-light", Vector3.Zero(), scene);
-    sunLight.diffuse = new Color3(1, 0.65, 0.42);
+    sunLight.diffuse = projectedSunlight;
     sunLight.specular = new Color3(1, 0.88, 0.66);
     sunLight.range = 18000;
     sunLight.intensity = 2.4;
-    sunLight.position.copyFrom(sun.position);
-
-    const sunShafts: VolumetricLightScatteringPostProcess | null = null;
+    sunLight.position.copyFrom(sunAsset.root.position);
 
     let currentTerrain = safeRun("generated terrain mesh", () => createIslandTerrain(scene));
     let terrainSurfaces = currentTerrain?.surfaceMeshes ?? [];
@@ -1400,6 +1407,11 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
     let lastTargetSourceRevision: string | null = null;
     const handleControllerKeyDown = (event: KeyboardEvent) => characterController.handleKeyDown(event);
     const handleControllerKeyUp = (event: KeyboardEvent) => characterController.handleKeyUp(event);
+    const handleControllerActionSignal = (event: Event) => {
+      const detail = (event as CustomEvent<CharacterActionSignal>).detail;
+      if (!detail || typeof detail.actionId !== "string" || (detail.phase !== "pressed" && detail.phase !== "released")) return;
+      characterController.handleActionSignal(detail);
+    };
     const readCanvasPointer = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -1441,6 +1453,13 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
       lastCanvasPointer = null;
       clearBlockFaceTarget("target.focus-lost");
     };
+    const releaseControllerInputs = () => {
+      handleControllerPointerCancel();
+      characterController.releaseAllInputs();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") releaseControllerInputs();
+    };
     const handleControllerPointerLeave = () => {
       if (gameplayMouseMode.getSnapshot().pointerLocked || gameplayMouseMode.getSnapshot().freeDragActive) return;
       lastCanvasPointer = null;
@@ -1461,20 +1480,23 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
     window.addEventListener("pointermove", handleControllerPointerMove);
     window.addEventListener("pointerup", handleControllerPointerUp);
     window.addEventListener("pointercancel", handleControllerPointerCancel);
-    window.addEventListener("blur", handleControllerPointerCancel);
+    window.addEventListener("blur", releaseControllerInputs);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("knowhere:gameplay-mouse-mode", handleGameplayMouseModeChange);
     document.addEventListener("pointerlockchange", reconcilePointerLock);
     window.addEventListener("keydown", releasePointerLock);
     window.addEventListener("keydown", handleControllerKeyDown);
     window.addEventListener("keyup", handleControllerKeyUp);
+    window.addEventListener("knowhere:character-action", handleControllerActionSignal);
     window.addEventListener("knowhere:load-generated-world", loadGeneratedWorld);
 
-    const orbitStartedAt = performance.now();
     let previousEntityPosition = camera.position.clone();
+    let verticalSpeed = 0;
     const renderFrame = () => {
       const now = performance.now();
       const deltaSeconds = Math.min(0.08, Math.max(0, (now - lastFrameAt) / 1000));
       lastFrameAt = now;
+      characterController.pollGamepads(navigator.getGamepads?.() ?? []);
       const controllerFrame = characterController.tick(now, deltaSeconds);
       applyCharacterLookToCamera(camera, controllerFrame.look);
       const routedTargetSource = routeCharacterBlockFaceTargetSource({
@@ -1502,6 +1524,19 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
         ? 0.45 * controllerFrame.movementModifiers.crouchMultiplier
         : controllerFrame.state.flags.flying ? 1.7 * controllerFrame.movementModifiers.flightMultiplier : 1;
       camera.speed = controllerFrame.state.flags.inputLocked ? 0 : BASE_CAMERA_SPEED * controllerFrame.movementModifiers.speedMultiplier * sprintMultiplier * stanceMultiplier;
+      if (!controllerFrame.state.flags.inputLocked) {
+        const forward = camera.getDirection(new Vector3(0, 0, 1));
+        const right = camera.getDirection(new Vector3(1, 0, 0));
+        if (!controllerFrame.state.flags.flying) {
+          forward.y = 0;
+          right.y = 0;
+        }
+        if (forward.lengthSquared() > 0) forward.normalize();
+        if (right.lengthSquared() > 0) right.normalize();
+        const movement = forward.scale(controllerFrame.move.forward).add(right.scale(controllerFrame.move.right));
+        if (movement.lengthSquared() > 1) movement.normalize();
+        camera.position.addInPlace(movement.scale(camera.speed * deltaSeconds));
+      }
       if (controllerFrame.dodge) {
         const direction = controllerFrame.dodge.direction;
         const localDirection = direction === "forward" ? new Vector3(0, 0, 1) : direction === "back" ? new Vector3(0, 0, -1) : direction === "left" ? new Vector3(-1, 0, 0) : new Vector3(1, 0, 0);
@@ -1509,11 +1544,24 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
         worldDirection.y = 0;
         if (worldDirection.lengthSquared() > 0) camera.position.addInPlace(worldDirection.normalize().scale(DODGE_SPEED * controllerFrame.movementModifiers.dodgeMultiplier * deltaSeconds * Math.sin(controllerFrame.dodge.progress * Math.PI)));
       }
-      if (!controllerFrame.state.flags.flying && controllerFrame.verticalVelocity !== 0) camera.position.y += controllerFrame.verticalVelocity * controllerFrame.movementModifiers.jumpMultiplier * deltaSeconds;
-
       const cameraGroundY = terrainSample(camera.position.x, camera.position.z).height * TERRAIN_VERTICAL_SCALE;
-      const minimumCameraY = cameraGroundY + PLAYER_EYE_HEIGHT;
-      if (camera.position.y < minimumCameraY) camera.position.y = minimumCameraY;
+      const eyeHeight = controllerFrame.state.flags.crouched ? CROUCH_EYE_HEIGHT : PLAYER_EYE_HEIGHT;
+      const minimumCameraY = cameraGroundY + eyeHeight;
+      if (controllerFrame.state.flags.flying) {
+        verticalSpeed = 0;
+        camera.position.y += controllerFrame.verticalIntent * PLAYER_FLIGHT_VERTICAL_SPEED * controllerFrame.movementModifiers.flightMultiplier * deltaSeconds;
+      } else {
+        if (controllerFrame.jumpRequested) verticalSpeed = PLAYER_JUMP_IMPULSE * controllerFrame.movementModifiers.jumpMultiplier;
+        verticalSpeed += PLAYER_GRAVITY * deltaSeconds;
+        camera.position.y += verticalSpeed * deltaSeconds;
+        if (camera.position.y <= minimumCameraY) {
+          camera.position.y = minimumCameraY;
+          verticalSpeed = 0;
+          characterController.setGrounded(true);
+        } else {
+          characterController.setGrounded(false);
+        }
+      }
       const entityVelocity = deltaSeconds > 0 ? camera.position.subtract(previousEntityPosition).scale(1 / deltaSeconds) : Vector3.Zero();
       previousEntityPosition = camera.position.clone();
       const entitySnapshot = characterController.createEntityRuntimeSnapshot({
@@ -1522,12 +1570,12 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
       });
       window.dispatchEvent(new CustomEvent("knowhere:entity-runtime-snapshot", { detail: entitySnapshot }));
 
-      const orbitDurationMs = (projection.sun.dayDurationSeconds + projection.sun.nightDurationSeconds) * 1000;
-      const time = ((performance.now() - orbitStartedAt) / orbitDurationMs) * Math.PI * 2 + Math.PI * 0.38;
+      const time = sunOrbitRadiansAt(projection.sun);
       const radius = 12500;
       const y = Math.sin(time) * 2600 + 6200;
-      sun.position.set(Math.cos(time) * radius, y, Math.sin(time) * radius + 5200);
-      sunLight.position.copyFrom(sun.position);
+      const sunPosition = new Vector3(Math.cos(time) * radius, y, Math.sin(time) * radius + 5200);
+      sunAsset.setPosition(sunPosition);
+      sunLight.position.copyFrom(sunPosition);
       const compass = cubeSphereCompass(camera);
       window.dispatchEvent(new CustomEvent("knowhere:camera-heading", { detail: compass }));
       window.dispatchEvent(new CustomEvent("knowhere:player-map-position", { detail: { x: camera.position.x, z: camera.position.z, heading: compass.heading } }));
@@ -1538,19 +1586,16 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
       ambient.diffuse = new Color3(0.54 + daylight * 0.2, 0.62 + daylight * 0.2, 0.62 + daylight * 0.16);
       sunLight.intensity = 0.12 + daylight * (projection.sun.maxIntensity - 0.12);
       sunLight.range = 26000;
-      const sunToCamera = sun.position.subtract(camera.position);
-      const sunRay = new Ray(camera.position, sunToCamera.normalize(), sunToCamera.length());
+      const sunToCamera = sunPosition.subtract(camera.position);
+      const sunDistance = sunToCamera.length();
+      const sunRay = new Ray(camera.position, sunToCamera.normalize(), sunDistance);
       const sunOccluded = terrainSurfaces.some((surface) => sunRay.intersectsMesh(surface, false).hit);
-      sun.isVisible = !sunOccluded;
-      sunHalo.isVisible = !sunOccluded;
-      sunMaterial.emissiveColor = projectedSunlight.scale(0.78 + daylight * 0.72);
+      sunAsset.update(deltaSeconds * 1000, sunOccluded ? 0 : 1);
       skyboxMaterial.emissiveColor = Color3.Lerp(
         Color3.FromHexString(projection.skybox.nightColor),
         Color3.FromHexString(projection.skybox.dayColor),
         daylight,
       );
-      haloMaterial.alpha = sunOccluded ? 0 : 0.1 + daylight * 0.16;
-      haloMaterial.emissiveColor = new Color3(0.72 + daylight * 0.95, 0.34 + daylight * 0.62, 0.12 + daylight * 0.28);
       if (terrainMaterial) {
         terrainMaterial.emissiveColor = projectedTerrainEmissive.scale(0.84 + lowLightWire * 0.34);
         terrainMaterial.specularColor = projectedTerrainSpecular.scale(0.82 + daylight * 0.36);
@@ -1589,14 +1634,17 @@ export function BabylonScene({ projection }: Readonly<{ projection: GardenSceneP
       window.removeEventListener("pointermove", handleControllerPointerMove);
       window.removeEventListener("pointerup", handleControllerPointerUp);
       window.removeEventListener("pointercancel", handleControllerPointerCancel);
-      window.removeEventListener("blur", handleControllerPointerCancel);
+      window.removeEventListener("blur", releaseControllerInputs);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("knowhere:gameplay-mouse-mode", handleGameplayMouseModeChange);
       document.removeEventListener("pointerlockchange", reconcilePointerLock);
       window.removeEventListener("keydown", releasePointerLock);
       window.removeEventListener("keydown", handleControllerKeyDown);
       window.removeEventListener("keyup", handleControllerKeyUp);
+      window.removeEventListener("knowhere:character-action", handleControllerActionSignal);
       window.removeEventListener("knowhere:load-generated-world", loadGeneratedWorld);
       window.removeEventListener("resize", handleResize);
+      characterController.releaseAllInputs();
       window.clearInterval(fallbackRenderTimer);
       scene.dispose();
       engine.dispose();

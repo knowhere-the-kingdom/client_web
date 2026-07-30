@@ -1,4 +1,4 @@
-import type { AbilitySlot, CharacterControllerState, CharacterMovementModifiers, EntityRuntimeContract, EntityRuntimeSnapshotInput, MovementDirection, CharacterActionId, CharacterBindings, CharacterControllerFrame, CharacterControllerTimers, CharacterRenderEvent, SkillRuntimeContract } from "./types";
+import type { AbilitySlot, CharacterActionSignal, CharacterControllerState, CharacterMovementModifiers, EntityRuntimeContract, EntityRuntimeSnapshotInput, MovementDirection, CharacterActionId, CharacterBindings, CharacterControllerFrame, CharacterControllerTimers, CharacterRenderEvent, SkillRuntimeContract } from "./types";
 import { createMovementActionsReadModel } from "./movementActions";
 
 const DOUBLE_TAP_MS = 280;
@@ -89,6 +89,8 @@ export class CharacterController {
   private readonly listeners = new Set<() => void>();
   private readonly eventListeners = new Set<(event: CharacterRenderEvent) => void>();
   private readonly held = new Set<CharacterActionId>();
+  private readonly semanticHeld = new Set<CharacterActionId>();
+  private readonly gamepadHeld = new Set<CharacterActionId>();
   private readonly keyActions = new Map<string, CharacterActionId>();
   private readonly pointerActions = new Map<number, CharacterActionId>();
   private readonly lastMovementTap = new Map<MovementDirection, number>();
@@ -101,6 +103,9 @@ export class CharacterController {
   private readonly skills = new Map<string, SkillRuntimeContract>();
   private readonly skillsBySlot = new Map<string, string>();
   private bindings: CharacterBindings = [];
+  private pendingJump = false;
+  private gamepadMove = { forward: 0, right: 0 };
+  private gamepadLook = { yaw: 0, pitch: 0 };
 
   constructor() {
     Object.entries(defaultKeys).forEach(([key, action]) => this.keyActions.set(key, action));
@@ -148,6 +153,39 @@ export class CharacterController {
     });
   }
 
+  handleActionSignal(signal: CharacterActionSignal) {
+    if (this.state.flags.inputLocked) return;
+    if (signal.phase === "pressed") {
+      if (this.semanticHeld.has(signal.actionId)) return;
+      this.semanticHeld.add(signal.actionId);
+      this.pressAction(signal.actionId, performance.now());
+    } else {
+      this.semanticHeld.delete(signal.actionId);
+      this.releaseAction(signal.actionId);
+    }
+    this.updateMovementMode();
+  }
+
+  pollGamepads(gamepads: readonly (Gamepad | null)[]) {
+    const gamepad = gamepads.find((candidate) => candidate?.connected) ?? null;
+    if (!gamepad || this.state.flags.inputLocked) {
+      this.gamepadMove = { forward: 0, right: 0 };
+      this.gamepadLook = { yaw: 0, pitch: 0 };
+      this.syncGamepadButtons(new Set());
+      return;
+    }
+    const deadzone = (value: number) => Math.abs(value) < 0.16 ? 0 : Math.sign(value) * ((Math.abs(value) - 0.16) / 0.84);
+    this.gamepadMove = { forward: -deadzone(gamepad.axes[1] ?? 0), right: deadzone(gamepad.axes[0] ?? 0) };
+    this.gamepadLook = { yaw: deadzone(gamepad.axes[2] ?? 0) * 0.035, pitch: deadzone(gamepad.axes[3] ?? 0) * 0.028 };
+    const pressed = new Set<CharacterActionId>();
+    const buttonActions: ReadonlyArray<readonly [number, CharacterActionId]> = [
+      [0, "jump"], [1, "crouch"], [3, "flight"], [10, "sprint"],
+      [12, "actionbar-4"], [13, "actionbar-3"], [14, "actionbar-1"], [15, "actionbar-2"],
+    ];
+    buttonActions.forEach(([index, action]) => { if (gamepad.buttons[index]?.pressed) pressed.add(action); });
+    this.syncGamepadButtons(pressed);
+  }
+
   handlePointerDown(event: MouseEvent) {
     if (isEditableTarget(event.target) || this.state.flags.inputLocked) return;
     const action = this.pointerActions.get(event.button);
@@ -171,7 +209,11 @@ export class CharacterController {
     if (!action || this.state.flags.inputLocked) return;
     event.preventDefault();
     this.held.add(action);
-    const now = performance.now();
+    this.pressAction(action, performance.now());
+    this.updateMovementMode();
+  }
+
+  private pressAction(action: CharacterActionId, now: number) {
     const direction = movementDirections[action];
     if (direction) {
       const previous = this.lastMovementTap.get(direction) ?? -Infinity;
@@ -179,14 +221,14 @@ export class CharacterController {
       if (now - previous <= DOUBLE_TAP_MS) this.startDodge(direction, now);
     } else if (action === "dodge") {
       this.startDodge(this.currentDirection() ?? "forward", now);
-    } else if (action === "jump" && !this.state.flags.flying) {
+    } else if (action === "jump" && !this.state.flags.flying && this.state.flags.grounded) {
       this.jumpStartedAt = now;
+      this.pendingJump = true;
       this.patch({ movementMode: "jump", flags: { ...this.state.flags, grounded: false } });
       this.emit({ abilityId: null, animationTag: "jump.start", sfxEvent: "jump" });
-    } else if (action === "crouch") {
-      const crouched = !this.state.flags.crouched;
-      this.patch({ movementMode: crouched ? "crouch" : "idle", flags: { ...this.state.flags, crouched } });
-      this.emit({ abilityId: null, animationTag: crouched ? "crouch.idle" : "idle", sfxEvent: crouched ? "crouch.enter" : "crouch.exit" });
+    } else if (action === "crouch" && !this.state.flags.flying) {
+      this.patch({ movementMode: "crouch", flags: { ...this.state.flags, crouched: true } });
+      this.emit({ abilityId: null, animationTag: "crouch.idle", sfxEvent: "crouch.enter" });
     } else if (action === "flight") {
       const flying = !this.state.flags.flying;
       this.patch({ movementMode: flying ? "flight" : "idle", flags: { ...this.state.flags, flying, grounded: !flying } });
@@ -194,18 +236,51 @@ export class CharacterController {
     } else if (actionSlots[action]) {
       this.activateSlot(actionSlots[action], now, "press");
     }
-    this.updateMovementMode();
   }
 
   handleKeyUp(event: KeyboardEvent) {
     const action = this.keyActions.get(normalizedKey(event.key));
     if (!action) return;
     this.held.delete(action);
+    this.releaseAction(action);
     this.updateMovementMode();
   }
 
+  releaseAllInputs() {
+    this.held.clear();
+    this.semanticHeld.clear();
+    this.gamepadHeld.clear();
+    this.gamepadMove = { forward: 0, right: 0 };
+    this.gamepadLook = { yaw: 0, pitch: 0 };
+    this.lookIntent = { yaw: 0, pitch: 0 };
+    this.pendingJump = false;
+    this.sprintCharge = 0;
+    this.patch({
+      movementMode: this.state.flags.flying ? "flight" : this.state.flags.grounded ? "idle" : "airborne",
+      flags: { ...this.state.flags, crouched: false, sprinting: false },
+    });
+  }
+
+  private releaseAction(action: CharacterActionId) {
+    if (this.isHeld(action)) return;
+    if (action === "crouch" && this.state.flags.crouched) {
+      this.patch({ flags: { ...this.state.flags, crouched: false } });
+      this.emit({ abilityId: null, animationTag: "idle", sfxEvent: "crouch.exit" });
+    }
+  }
+
+  setGrounded(grounded: boolean) {
+    if (this.state.flags.flying || this.state.flags.grounded === grounded) return;
+    this.patch({
+      movementMode: grounded && ["jump", "airborne"].includes(this.state.movementMode)
+        ? (this.hasMovement() ? "locomotion" : "idle")
+        : this.state.movementMode,
+      flags: { ...this.state.flags, grounded },
+    });
+  }
+
   tick(now: number, deltaSeconds: number): CharacterControllerFrame {
-    const sprinting = this.held.has("sprint") && this.hasMovement() && !this.state.flags.crouched && !this.state.flags.flying;
+    const sprinting = this.isHeld("sprint") && this.hasMovement() && !this.state.flags.crouched && !this.state.flags.flying;
     this.sprintCharge = Math.max(0, Math.min(1, this.sprintCharge + deltaSeconds / SPRINT_RAMP_SECONDS * (sprinting ? 1 : -2.4)));
 
     if (this.state.lifecycle === "dying" && now - this.lifecycleStartedAt >= DYING_DURATION_MS) {
@@ -226,15 +301,15 @@ export class CharacterController {
     const dodgeElapsed = now - this.dodgeStartedAt;
     if (this.state.movementMode === "dodge" && dodgeElapsed >= DODGE_DURATION_MS) this.updateMovementMode(true);
     const jumpElapsed = now - this.jumpStartedAt;
-    if ((this.state.movementMode === "jump" || this.state.movementMode === "airborne") && jumpElapsed >= JUMP_DURATION_MS) {
-      this.patch({ movementMode: this.hasMovement() ? "locomotion" : "idle", flags: { ...this.state.flags, grounded: true } });
-    } else if (this.state.movementMode === "jump" && jumpElapsed >= 140) {
+    if (this.state.movementMode === "jump" && jumpElapsed >= 140) {
       this.patch({ movementMode: "airborne" });
     }
 
     const move = this.movementVector();
-    const look = this.lookIntent;
+    const look = { yaw: this.lookIntent.yaw + this.gamepadLook.yaw, pitch: this.lookIntent.pitch + this.gamepadLook.pitch };
     this.lookIntent = { yaw: 0, pitch: 0 };
+    const jumpRequested = this.pendingJump;
+    this.pendingJump = false;
     if (this.state.abilityPhase === "none") this.emitAnimation(this.animationTagForMovement(), null);
     return {
       state: this.state,
@@ -245,6 +320,8 @@ export class CharacterController {
       timers: this.frameTimers(now),
       dodge: this.state.movementMode === "dodge" && this.state.dodgeDirection ? { direction: this.state.dodgeDirection, progress: Math.min(1, dodgeElapsed / DODGE_DURATION_MS) } : null,
       verticalVelocity: this.state.movementMode === "jump" || this.state.movementMode === "airborne" ? Math.cos(Math.min(1, jumpElapsed / JUMP_DURATION_MS) * Math.PI) * 7 : 0,
+      verticalIntent: this.state.flags.flying ? Number(this.isHeld("jump")) - Number(this.isHeld("crouch")) : 0,
+      jumpRequested,
     };
   }
 
@@ -518,10 +595,10 @@ export class CharacterController {
   }
 
   private currentDirection(): MovementDirection | null {
-    if (this.held.has("move-forward")) return "forward";
-    if (this.held.has("move-back")) return "back";
-    if (this.held.has("strafe-left")) return "left";
-    if (this.held.has("strafe-right")) return "right";
+    if (this.isHeld("move-forward") || this.gamepadMove.forward > 0.16) return "forward";
+    if (this.isHeld("move-back") || this.gamepadMove.forward < -0.16) return "back";
+    if (this.isHeld("strafe-left") || this.gamepadMove.right < -0.16) return "left";
+    if (this.isHeld("strafe-right") || this.gamepadMove.right > 0.16) return "right";
     return null;
   }
 
@@ -531,16 +608,36 @@ export class CharacterController {
 
   private movementVector() {
     return {
-      forward: Number(this.held.has("move-forward")) - Number(this.held.has("move-back")),
-      right: Number(this.held.has("strafe-right")) - Number(this.held.has("strafe-left")),
+      forward: Math.max(-1, Math.min(1, Number(this.isHeld("move-forward")) - Number(this.isHeld("move-back")) + this.gamepadMove.forward)),
+      right: Math.max(-1, Math.min(1, Number(this.isHeld("strafe-right")) - Number(this.isHeld("strafe-left")) + this.gamepadMove.right)),
     };
+  }
+
+  private isHeld(action: CharacterActionId) {
+    return this.held.has(action) || this.semanticHeld.has(action) || this.gamepadHeld.has(action);
+  }
+
+  private syncGamepadButtons(next: Set<CharacterActionId>) {
+    for (const action of [...this.gamepadHeld]) {
+      if (!next.has(action)) {
+        this.gamepadHeld.delete(action);
+        this.releaseAction(action);
+      }
+    }
+    for (const action of next) {
+      if (!this.gamepadHeld.has(action)) {
+        this.gamepadHeld.add(action);
+        this.pressAction(action, performance.now());
+      }
+    }
+    this.updateMovementMode();
   }
 
   private updateMovementMode(force = false) {
     if (!force && ["dodge", "jump", "airborne"].includes(this.state.movementMode)) return;
     if (this.state.flags.flying) this.patch({ movementMode: "flight" });
     else if (this.state.flags.crouched) this.patch({ movementMode: "crouch" });
-    else if (this.held.has("sprint") && this.hasMovement()) this.patch({ movementMode: "sprint", flags: { ...this.state.flags, sprinting: true } });
+    else if (this.isHeld("sprint") && this.hasMovement()) this.patch({ movementMode: "sprint", flags: { ...this.state.flags, sprinting: true } });
     else this.patch({ movementMode: this.hasMovement() ? "locomotion" : "idle", flags: { ...this.state.flags, sprinting: false } });
   }
 

@@ -1,43 +1,171 @@
 import { useMemo, useState } from "react";
 import type { GatewaySessionProjection } from "./api/gateway-contract";
 import { DashboardSettingsPage, type SettingsDashboardPage } from "./dashboard/DashboardSettingsPages";
-import { KnowledgePage, type KnowledgePageKind } from "./dashboard/KnowledgePages";
-import { ManagerOverview, ManagerPage, type ManagerKind } from "./dashboard/ManagerPage";
+import type { ManagerKind } from "./dashboard/ManagerPage";
 
-type Page = "profile" | "account" | KnowledgePageKind | SettingsDashboardPage | "world" | "material" | "model" | "item" | "biome" | "generator" | "admin" | "entities" | ManagerKind;
-type Entry = Readonly<{ page: Page; label: string; available: boolean; section?: string }>;
-type Group = Readonly<{ id: string; label: string; entries: readonly Entry[] }>;
+type Page =
+  | "account"
+  | "profile"
+  | SettingsDashboardPage
+  | "store"
+  | "world"
+  | "material"
+  | "model"
+  | "item"
+  | "biome"
+  | "generator"
+  | "admin"
+  | "entities"
+  | ManagerKind;
 
-const groups: readonly Group[] = [
-  { id: "account", label: "Account", entries: [{ page: "profile", label: "Profile Page", available: true }, { page: "account", label: "Account Settings", available: true }] },
-  { id: "knowledge", label: "Knowledge", entries: [{ page: "avatars", label: "Avatars", available: true }, { page: "collections", label: "Collections", available: true }, { page: "reputation", label: "Reputation", available: true }, { page: "achievements", label: "Achievements", available: true }] },
-  { id: "game", label: "Game Settings", entries: [{ page: "gameplay", label: "Gameplay", available: true }, { page: "controls-actions", label: "Game Actions", available: true, section: "Controls" }, { page: "controls-ui", label: "UI Controls", available: true, section: "Controls" }, { page: "controls-mouse", label: "Mouse Settings", available: true, section: "Controls" }, { page: "controls-gamepad", label: "Gamepad", available: true, section: "Controls" }, { page: "display", label: "Display", available: true }, { page: "audio", label: "Audio", available: true }] },
-  { id: "world", label: "World Designer", entries: [{ page: "world", label: "World Designer Overview", available: false }, { page: "material", label: "Material Editor", available: false }, { page: "model", label: "Model Editor", available: false }, { page: "item", label: "Item Editor", available: false }, { page: "biome", label: "Biome Graphs", available: false }, { page: "generator", label: "World Generator", available: false }] },
-  { id: "admin", label: "Admin", entries: [{ page: "admin", label: "Admin Overview", available: false }, { page: "entities", label: "Entity Manager", available: false, section: "Clockwork" }, { page: "users", label: "User Manager", available: false, section: "Social" }, { page: "roles", label: "Role Manager", available: false, section: "Social" }, { page: "groups", label: "Group Manager", available: false, section: "Social" }, { page: "skills", label: "Skill Manager", available: false, section: "System" }, { page: "stats", label: "Stat Manager", available: false, section: "System" }, { page: "materia", label: "Materia Manager", available: false, section: "System" }] },
+type TreeId = "admin" | "creator";
+type TreeLink = Readonly<{ page: Page; label: string }>;
+
+const adminLinks: readonly TreeLink[] = [
+  { page: "admin", label: "Site Settings" },
+  { page: "entities", label: "Server Tools" },
+  { page: "users", label: "User Management" },
+  { page: "groups", label: "Group Management" },
+  { page: "roles", label: "Roles & Permissions" },
+  { page: "skills", label: "Skill Manager" },
+  { page: "stats", label: "Stat Manager" },
+  { page: "materia", label: "Materia Manager" },
 ];
+
+const creatorLinks: readonly TreeLink[] = [
+  { page: "material", label: "Material Editor" },
+  { page: "model", label: "Model Editor" },
+  { page: "biome", label: "Biome Editor" },
+  { page: "world", label: "World Editor" },
+  { page: "generator", label: "World Settings" },
+  { page: "item", label: "Item Editor" },
+];
+
+const managerKinds: readonly ManagerKind[] = ["users", "roles", "groups", "skills", "stats", "materia"];
+const gameSettingsPages: readonly Page[] = ["gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "display", "audio"];
+const knownPages = new Set<Page>([
+  "account", "profile", "store",
+  "gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "display", "audio",
+  "world", "material", "model", "item", "biome", "generator", "admin", "entities",
+  ...managerKinds,
+]);
+const capabilityPages = new Set<Page>(["world", "material", "model", "item", "biome", "generator", "admin", "entities", ...managerKinds]);
+
+const pageLabels: Partial<Record<Page, string>> = {
+  store: "Store",
+  world: "World Editor",
+  material: "Material Editor",
+  model: "Model Editor",
+  item: "Item Editor",
+  biome: "Biome Editor",
+  generator: "World Settings",
+  entities: "Server Tools",
+};
 
 function requestedPage(): Page {
   const value = new URLSearchParams(window.location.search).get("page") as Page | null;
-  return groups.some((group) => group.entries.some((entry) => entry.page === value)) ? value! : "profile";
+  return value && knownPages.has(value) && !capabilityPages.has(value) ? value : "account";
 }
 
-export function Dashboard({ projection, onBack, onLogout }: Readonly<{ projection: GatewaySessionProjection; onBack: () => void; onLogout: () => void }>) {
-  const [page, setPage] = useState<Page>(requestedPage);
-  const [open, setOpen] = useState(() => new Set(groups.map((group) => group.id)));
-  const [railVisible, setRailVisible] = useState(true);
-  const selected = projection.selection.characters.find((character) => character.id === projection.selection.selectedCharacterId) ?? projection.selection.characters[0];
-  const user = useMemo(() => ({ id: selected?.id ?? "authenticated-user", username: selected?.displayName ?? "traveler", displayName: selected?.displayName ?? "Traveler" }), [selected]);
-  const navigate = (next: Page) => { const url = new URL(window.location.href); url.searchParams.set("page", next); window.history.pushState({}, "", url); setPage(next); };
-  const entry = groups.flatMap((group) => group.entries).find((candidate) => candidate.page === page);
-  const managerKinds: readonly ManagerKind[] = ["users", "roles", "groups", "skills", "stats", "materia"];
-  const gameSettingsPages: readonly Page[] = ["gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "display", "audio"];
+function NavigationTree({
+  id,
+  label,
+  target,
+  links,
+  expanded,
+  page,
+  onNavigate,
+  onToggle,
+  available,
+}: Readonly<{
+  id: TreeId;
+  label: string;
+  target: Page;
+  links: readonly TreeLink[];
+  expanded: boolean;
+  page: Page;
+  onNavigate: (page: Page) => void;
+  onToggle: () => void;
+  available: boolean;
+}>) {
+  const selected = page === target || links.some((link) => link.page === page);
+  return <section className="dashboard-navigation-tree">
+    <div className="dashboard-navigation-tree__heading">
+      <button type="button" aria-current={selected ? "page" : undefined} disabled={!available} title={available ? undefined : "Requires a server-validated capability projection"} onClick={() => onNavigate(target)}>{label}</button>
+      <button
+        type="button"
+        className="dashboard-navigation-tree__toggle"
+        aria-controls={`dashboard-${id}-links`}
+        aria-expanded={expanded}
+        aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
+        disabled={!available}
+        onClick={onToggle}
+      ><span aria-hidden="true">▸</span></button>
+    </div>
+    {expanded ? <div id={`dashboard-${id}-links`} className="dashboard-navigation-tree__links">
+      {links.map((link) => <button type="button" aria-current={page === link.page ? "page" : undefined} onClick={() => onNavigate(link.page)} key={`${id}-${link.label}`}>{link.label}</button>)}
+    </div> : null}
+  </section>;
+}
 
-  return <main className={`dashboard-page app-page ${railVisible ? "dashboard-rail-visible" : "dashboard-rail-hidden"}`} aria-label="Knowhere Dashboard">
-    <aside className="dashboard-sidebar"><header><div className="dashboard-sidebar-topline"><button className="dashboard-back-link" type="button" onClick={onBack}>← Back to Game</button><button className="kh-button kh-button-ghost dashboard-rail-toggle" type="button" onClick={() => setRailVisible(false)}>◀</button></div><button className="dashboard-brand" type="button" onClick={() => navigate("profile")}><b>Knowhere</b><span>the Kingdom</span></button></header>
-      <nav>{groups.map((group) => <section className="dashboard-nav-group" key={group.id}><button className="kh-button kh-button-outline dashboard-nav-trigger" type="button" aria-expanded={open.has(group.id)} onClick={() => setOpen((current) => { const next = new Set(current); if (next.has(group.id)) next.delete(group.id); else next.add(group.id); return next; })}><span>{open.has(group.id) ? "▾" : "▸"}</span><span className="dashboard-nav-label">{group.label}</span></button>{open.has(group.id) ? <div className="dashboard-nav-content">{group.entries.map((item, index) => <span className={`dashboard-nav-entry dashboard-nav-entry-${item.available ? "complete" : "not-started"}`} key={item.page}>{item.section && item.section !== group.entries[index - 1]?.section ? <em>{item.section}</em> : null}<button className={`kh-button kh-button-ghost${page === item.page ? " active" : ""}`} type="button" disabled={!item.available} title={item.available ? item.label : `${item.label} — server contract unavailable`} onClick={() => navigate(item.page)}><span className="dashboard-nav-label">{item.label}</span><span className={`dashboard-status-dot dashboard-status-dot-${item.available ? "complete" : "not-started"}`} /></button></span>)}</div> : null}</section>)}</nav>
-      <footer><button className="kh-button kh-button-outline" type="button" onClick={onLogout}>Sign Out</button></footer>
+export function Dashboard({ projection, onBack, onLogout }: Readonly<{
+  projection: GatewaySessionProjection;
+  onBack: () => void;
+  onLogout: () => void;
+}>) {
+  const [page, setPage] = useState<Page>(requestedPage);
+  const [openTrees, setOpenTrees] = useState<ReadonlySet<TreeId>>(() => new Set());
+  const selected = projection.selection.characters.find((character) => character.id === projection.selection.selectedCharacterId)
+    ?? projection.selection.characters[0];
+  const user = useMemo(() => ({
+    id: selected?.id ?? "authenticated-user",
+    username: selected?.displayName ?? "traveler",
+    displayName: selected?.displayName ?? "Traveler",
+  }), [selected]);
+
+  const navigate = (next: Page) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("page", next);
+    window.history.pushState({}, "", url);
+    setPage(next);
+  };
+  const toggleTree = (id: TreeId) => setOpenTrees((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+
+  return <main className="dashboard-page app-page" aria-label="Knowhere Dashboard">
+    <aside className="dashboard-sidebar" aria-label="Dashboard navigation">
+      <button className="dashboard-brand" type="button" onClick={onBack} aria-label="Return to game">
+        <img src="/inventory/items/icons/designer-keyhole.svg" alt="" />
+        <span className="dashboard-brand__copy"><strong>Knowhere</strong><span>Dashboard Prototype</span></span>
+      </button>
+
+      <nav className="dashboard-navigation__top" aria-label="Primary">
+        <button type="button" aria-current={page === "account" || page === "profile" ? "page" : undefined} onClick={() => navigate("account")}>Account Settings</button>
+        <button type="button" aria-current={gameSettingsPages.includes(page) ? "page" : undefined} onClick={() => navigate("gameplay")}>Game Settings</button>
+      </nav>
+
+      <nav className="dashboard-navigation__middle" aria-label="Store">
+        <button type="button" aria-current={page === "store" ? "page" : undefined} onClick={() => navigate("store")}>Store</button>
+      </nav>
+
+      <div className="dashboard-navigation__lower">
+        <nav className="dashboard-navigation__admin" aria-label="Administration">
+          <NavigationTree id="admin" label="Admin Tools" target="admin" links={adminLinks} expanded={openTrees.has("admin")} page={page} onNavigate={navigate} onToggle={() => toggleTree("admin")} available={false} />
+        </nav>
+        <nav className="dashboard-navigation__admin" aria-label="Creator tools">
+          <NavigationTree id="creator" label="Creator Tools" target="world" links={creatorLinks} expanded={openTrees.has("creator")} page={page} onNavigate={navigate} onToggle={() => toggleTree("creator")} available={false} />
+        </nav>
+      </div>
+
+      <nav className="dashboard-navigation__bottom" aria-label="Session">
+        <button type="button" onClick={onLogout}>Logout</button>
+      </nav>
     </aside>
-    {!railVisible ? <button className="dashboard-rail-reveal" type="button" onClick={() => setRailVisible(true)}>☰ <span>Show navigation</span></button> : null}
+
     <section className="dashboard-content">
       {gameSettingsPages.includes(page) ? <nav className="dashboard-prototype-tabs" aria-label="Game settings categories">
         <button type="button" className={page === "gameplay" ? "active" : ""} onClick={() => navigate("gameplay")}>Game</button>
@@ -45,12 +173,17 @@ export function Dashboard({ projection, onBack, onLogout }: Readonly<{ projectio
         <button type="button" className={page === "display" ? "active" : ""} onClick={() => navigate("display")}>Display</button>
         <button type="button" className={page === "audio" ? "active" : ""} onClick={() => navigate("audio")}>Audio</button>
       </nav> : null}
-      {!entry?.available ? <article className="dashboard-card"><span>Visible · unavailable</span><h1>{entry?.label}</h1><p>This legacy workspace is preserved exactly in navigation, but its mutations remain disabled until an owning service publishes the required audited API.</p><div className="dashboard-placeholder">No browser or local-storage authority is substituted.</div></article>
-        : managerKinds.includes(page as ManagerKind) ? <ManagerPage kind={page as ManagerKind} onBack={() => navigate("admin")} />
-        : page === "admin" ? <ManagerOverview onPreview={(kind) => navigate(kind)} />
-        : (["avatars", "collections", "reputation", "achievements"] as Page[]).includes(page) ? <KnowledgePage kind={page as KnowledgePageKind} userId={user.id} />
-        : (["profile", "account", "gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "display", "audio"] as Page[]).includes(page) ? <DashboardSettingsPage page={page as SettingsDashboardPage} user={user} onNavigate={(next) => navigate(next as Page)} />
-        : <article className="dashboard-card"><span>Dashboard</span><h1>{entry?.label ?? "Knowhere"}</h1><p>The legacy dashboard presentation is connected to the authenticated Gateway session.</p></article>}
+
+      {page === "account" ? <article className="dashboard-account-landing">
+          <p className="dashboard-eyebrow">Account</p>
+          <h1>Account Settings</h1>
+          <button type="button" className="dashboard-account-identity" onClick={() => navigate("profile")} aria-label="Open account profile settings">{user.username} · Player</button>
+        </article>
+        : page === "profile" ? <DashboardSettingsPage page="profile" user={user} onNavigate={(next) => navigate(next as Page)} />
+        : page === "store" ? <article className="dashboard-prototype-placeholder"><p className="dashboard-eyebrow">Store</p><h1>Store</h1><p>Store inventory will be added here.</p></article>
+        : capabilityPages.has(page) ? <article className="dashboard-prototype-placeholder"><p className="dashboard-eyebrow">Unavailable</p><h1>Capability required</h1><p>This panel requires a server-validated capability projection.</p></article>
+        : (["gameplay", "controls-actions", "controls-ui", "controls-mouse", "controls-gamepad", "display", "audio"] as Page[]).includes(page) ? <DashboardSettingsPage page={page as SettingsDashboardPage} user={user} onNavigate={(next) => navigate(next as Page)} />
+        : <article className="dashboard-prototype-placeholder"><p className="dashboard-eyebrow">Creator Tools</p><h1>{pageLabels[page] ?? "Knowhere"}</h1><p>This workspace is preserved in navigation while its server-owned editing contract remains unavailable.</p></article>}
     </section>
   </main>;
 }

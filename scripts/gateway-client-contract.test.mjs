@@ -20,7 +20,22 @@ const scene = {
   sceneId: "garden-alpha-v1",
   voxelLandscape: { kind: "flat-chunk-grid", voxelSizeMeters: 1, chunkSize: 16, chunkRadius: 14, diffuse: "#3f9b45", emissive: "#102d13", specular: "#17351a" },
   skybox: { kind: "solid-color-sphere", diameter: 440, segments: 24, dayColor: "#55a9ed", nightColor: "#020718" },
-  sun: { kind: "orbiting-mythic-sun", dayDurationSeconds: 60, nightDurationSeconds: 60, sunlight: "#fff3d0", maxIntensity: 1.25 },
+  sun: {
+    kind: "orbiting-mythic-sun",
+    assetId: "mythic-sun",
+    assetVersion: 1,
+    diameter: 52,
+    quality: "medium",
+    seed: 17,
+    palette: { heart: "#ffe29a", plasma: "#ff8a3d", ember: "#b84a32", shadow: "#3a1820" },
+    dayDurationSeconds: 60,
+    nightDurationSeconds: 60,
+    cycleEpoch: "2026-01-01T00:00:00.000Z",
+    cycleOffsetSeconds: 0,
+    scheduleRevision: 1,
+    sunlight: "#fff3d0",
+    maxIntensity: 1.25,
+  },
 };
 
 test("the live client may use Knowhere's public Gateway subdomain", () => {

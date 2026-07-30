@@ -154,6 +154,25 @@ test("ability activation rejects insufficient resources", () => {
   assert.equal(controller.getSnapshot().resources.spirit.current, 5);
 });
 
+test("focus loss releases held movement, sprint, crouch, and transient input", () => {
+  const controller = new CharacterController();
+  const key = (value: string) => ({ key: value, repeat: false, target: null, preventDefault: () => undefined } as KeyboardEvent);
+
+  controller.handleKeyDown(key("w"));
+  controller.handleKeyDown(key("Shift"));
+  controller.handleKeyDown(key("Control"));
+  controller.handleLookInput(30, 20, 100, 100);
+  assert.notEqual(controller.tick(1000, 0.1).move.forward, 0);
+
+  controller.releaseAllInputs();
+  const frame = controller.tick(1016, 0.016);
+  assert.deepEqual(frame.move, { forward: 0, right: 0 });
+  assert.deepEqual(frame.look, { yaw: 0, pitch: 0 });
+  assert.equal(frame.state.flags.crouched, false);
+  assert.equal(frame.state.flags.sprinting, false);
+  assert.equal(frame.jumpRequested, false);
+});
+
 test("configured pointer bindings activate selected item hand contracts", () => {
   const controller = new CharacterController();
   const contracts = createItemAbilityContracts({
