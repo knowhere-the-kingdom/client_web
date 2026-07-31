@@ -377,6 +377,40 @@
     min-height: 8rem;
   }
 }
+@media (max-height: 50rem) and (min-width: 34.01rem) {
+  .system-stage {
+    place-items: start center;
+    overflow: auto;
+    padding-block: 3rem 1rem;
+  }
+  .system-access-shell {
+    padding-top: calc(var(--inventory-grid-unit) * 0.8);
+  }
+  .system-panel {
+    padding: 2.35rem 3rem 1.35rem;
+  }
+  .system-login-form {
+    gap: 0.65rem !important;
+  }
+  .system-login-heading {
+    gap: 0.25rem;
+    margin-bottom: 0;
+  }
+  .system-login-heading h1 {
+    font-size: 2.7rem;
+  }
+  .system-login-field input,
+  .system-login-submit,
+  .system-login-secondary button {
+    min-height: 2.45rem;
+  }
+  .system-qr {
+    padding: 0.35rem;
+  }
+  .system-qr img {
+    width: 7.25rem;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .system-tube-close,
   .system-key.is-identified .inventory-item__visual {
