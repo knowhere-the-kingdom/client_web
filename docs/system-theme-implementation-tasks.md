@@ -24,8 +24,9 @@ into it.
 - [ ] Define Gateway-safe session-awareness, login, Discord, registration,
   recovery, logout, progress, and client-safe error envelopes.
 - [ ] Require username/password/phone and allow optional email for registration.
-- [ ] Define the four-position 2x2 Spirit character projection and empty-position
-  create action without browser-owned authority.
+- [ ] Define the account Soul projection, all owned 2x3 character items, one
+  empty 2x3 create affordance, the active 2x3 character receptacle, and the 3x3
+  Garden world item without browser-owned authority.
 - [ ] Define active-character disposition and Garden theme handoff.
 - [ ] Freeze same-origin endpoint names, protocol versions, CSRF/session rules,
   correlation/idempotency, timeout/cancellation, CSP/origin, and generic failure

@@ -11,9 +11,13 @@ const session = {
   authorizationRevision: 1,
   requiresExplicitResume: false,
 };
+const characterItem = { definitionId: "character-soul-v1", name: "Character Soul", description: "A playable character possessed by the account.", quality: 6, footprint: { width: 2, height: 3 } };
+const accountSoul = { item: { definitionId: "account-soul-v1", name: "Account Soul", description: "The authenticated account spirit.", quality: 8, footprint: { width: 2, height: 2 } }, stats: { totalLoginSeconds: 3600 } };
+const gardenPreview = { definitionId: "garden-world-v1", name: "Garden", description: "The player local Garden world.", quality: 7, footprint: { width: 3, height: 3 } };
 const projection = {
   session,
-  selection: { version: 1, selectedCharacterId: "character-1", characters: [], canEnterWorld: true, resumeStage: "world-entry", reason: null },
+  selection: { version: 1, selectedCharacterId: "character-1", characters: [{ id: "character-1", displayName: "Traveler", archetype: "Explorer", selectable: true, item: characterItem }], canEnterWorld: true, resumeStage: "world-entry", reason: null },
+  accountSoul,
 };
 const scene = {
   schemaVersion: 1,
@@ -101,16 +105,39 @@ test("Garden prewarm rejects noncanonical or authority-shaped projections", asyn
   }
 });
 
-test("the client flow requires a Gateway entry before a valid bootstrap", () => {
-  const entering = stateFromSession(projection);
-  assert.equal(entering.phase, "gateway-entry");
+test("the client flow requires an explicit Wake Up action before Gateway entry", () => {
+  const ready = stateFromSession(projection);
+  assert.equal(ready.phase, "character-ready");
+  const entering = { phase: "gateway-entry", projection: ready.projection, worldId: "garden" };
   const bootstrapping = beginWorldBootstrap(entering, { session });
   const final = completeWorldBootstrap(bootstrapping, { schemaVersion: 1, worldSessionId: "session-1", worldId: "garden", characterId: "character-1", leaseExpiresAt: "2099-07-29T00:00:00.000Z", serverSnapshot: { contentRevision: 1, contentHash: "content-1" }, hudProjectionRevision: 1, scene });
   assert.equal(final.phase, "world-ready");
 });
 
-test("normal character flow contains no world picker", async () => {
+test("normal character flow offers only the server-owned Garden wake item", async () => {
   const appSource = await import("node:fs/promises").then(({ readFile }) => readFile(new URL("../src/App.tsx", import.meta.url), "utf8"));
   assert.doesNotMatch(appSource, /Find available world|Enter world/);
+  assert.match(appSource, /system-world-item/);
+  assert.match(appSource, /"Wake Up"/);
   assert.match(appSource, /enterWorld\("garden"\)/);
+});
+
+test("System item projections are mandatory and world discovery remains server-owned", async () => {
+  const response = (data) => new Response(JSON.stringify({ protocolVersion: "1.0", correlationId: "correlation-1", data }), { headers: { "content-type": "application/json" } });
+  const request = async (input) => new URL(input).pathname === "/v1/worlds"
+    ? response({ defaultWorldId: "garden", worlds: [{ id: "garden", displayName: "Garden", description: "Your local Garden world.", available: true, gameProtocolVersion: "1.0", currentPlayerCount: 1, previewItem: gardenPreview }] })
+    : response(projection);
+  const client = createGatewayClient("https://client.example", request);
+  assert.equal((await client.restoreSession()).ok, true);
+  assert.equal((await client.getWorlds()).ok, true);
+
+  const missingSoul = createGatewayClient("https://client.example", async () => response({ session, selection: projection.selection }));
+  const missingResult = await missingSoul.restoreSession();
+  assert.equal(missingResult.ok, false);
+  assert.equal(missingResult.code, "invalid_response");
+
+  const missingPreview = createGatewayClient("https://client.example", async () => response({ defaultWorldId: "garden", worlds: [{ id: "garden", displayName: "Garden", description: "Garden", available: true, gameProtocolVersion: "1.0", currentPlayerCount: 0 }] }));
+  const worldResult = await missingPreview.getWorlds();
+  assert.equal(worldResult.ok, false);
+  assert.equal(worldResult.code, "invalid_response");
 });

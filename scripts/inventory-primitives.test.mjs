@@ -4,13 +4,28 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 import {
+  ACCOUNT_SOUL_ITEM,
   AWARENESS_INSTANCE,
   AWARENESS_ITEM,
+  CHARACTER_RECEPTACLE,
+  CHARACTER_SOUL_ITEM,
   DESIGNER_RECEPTACLE,
+  GARDEN_WORLD_ITEM,
+  SPIRIT_RECEPTACLE,
+  WORLD_RECEPTACLE,
   createInventoryCatalogAdapter,
   inventoryQualityName,
   slotAcceptsItem,
 } from "../src/inventory/inventory-model.ts";
+
+test("System passage item definitions preserve exact shared-grid footprints", () => {
+  assert.deepEqual(ACCOUNT_SOUL_ITEM.gridSize, { width: 2, height: 2 });
+  assert.deepEqual(CHARACTER_SOUL_ITEM.gridSize, { width: 2, height: 3 });
+  assert.deepEqual(GARDEN_WORLD_ITEM.gridSize, { width: 3, height: 3 });
+  assert.equal(slotAcceptsItem(SPIRIT_RECEPTACLE, ACCOUNT_SOUL_ITEM), true);
+  assert.equal(slotAcceptsItem(CHARACTER_RECEPTACLE, CHARACTER_SOUL_ITEM), true);
+  assert.equal(slotAcceptsItem(WORLD_RECEPTACLE, GARDEN_WORLD_ITEM), true);
+});
 import {
   EMPTY_INVENTORY_MOVEMENT,
   cancelInventoryMovement,

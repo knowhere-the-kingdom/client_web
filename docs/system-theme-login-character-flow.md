@@ -96,13 +96,20 @@ or color through the name, numeric level, border pattern, and accessible label.
    - Relay only stable, client-safe login error codes/messages from the Gateway.
      Never render raw exceptions, SQL, private URLs, tokens, or stack traces.
 8. **Character selection and creation**
-   - Render exactly four 2x2 character positions from the server-confirmed
-     Spirit inventory projection. Populated slots represent characters the
-     account may access; selecting an empty slot opens Create Character.
-   - Four 2x2 positions are the desired default container design, not permission
-     for the client to invent characters or inventory ownership.
+   - Keep one standardized 2x2 Designer/Awareness slot at the top-left and one
+     inert 2x2 account Soul item at the top-right. The Soul tooltip presents
+     server-projected account statistics including total login time.
+   - Render every server-confirmed account character as a 2x3 item plus exactly
+     one unlabeled empty 2x3 create affordance. The fixed active-character
+     receptacle is an empty 2x3 slot at bottom center.
+   - Selecting or forgivingly dropping a character animates the item from its
+     source into the bottom receptacle. The client never invents characters,
+     ownership, account statistics, or inventory placement.
 9. **Enter Garden**
-   - Selecting or creating a character requests server-confirmed Garden entry.
+   - After a character is seated, replace the character list with one 3x3
+     server-projected Garden world item titled `Wake Up`. Its tooltip contains
+     world details and current online player count.
+   - Clicking the Garden item requests server-confirmed Garden entry.
    - After admission/bootstrap succeeds, transition from System to Kingdom and
      load the local Garden presentation. No separate Select World step.
 10. **Key removal and reload**
@@ -116,7 +123,7 @@ or color through the name, numeric level, border pattern, and accessible label.
 
 - Stages: `splash -> identified -> designer-ready -> session-check -> login ->
   registering|recovering -> connecting -> character-select|character-create ->
-  garden-entry -> garden`.
+  character-ready -> garden-entry -> garden`.
 - `key-removed`, cancellation, stale response, or invalid projection returns to
   `splash`; late responses cannot reopen a closed panel.
 - Account, session, Spirit inventory, character ownership, active character,
@@ -136,8 +143,9 @@ or color through the name, numeric level, border pattern, and accessible label.
 - [ ] Reload starts Splash; reinsertion may resume a valid server session.
 - [ ] Key removal from every System stage logs out and ignores late responses.
 - [ ] Login, Discord, registration, recovery, QR placeholder, progress, and safe errors work through Gateway only.
-- [ ] Character Select renders four 2x2 server-projected Spirit positions and an empty Create action.
-- [ ] Character selection enters Garden directly and switches System to Kingdom.
+- [ ] Character Select renders all server-projected 2x3 character items, one unlabeled empty Create item, and the fixed 2x3 active-character slot.
+- [ ] Character seating animates, then exposes the 3x3 Garden `Wake Up` item; only that item enters Garden.
+- [ ] Designer, Soul, character, and world items use the shared grid-unit geometry and server-owned item definitions.
 - [ ] Web keyboard/pointer/touch and physical Android/WebView evidence pass.
 - [ ] Server Guy records exact release candidate, rollback, deployment, and live checks before publication.
 

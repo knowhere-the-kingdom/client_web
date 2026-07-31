@@ -28,12 +28,31 @@ test("the System handoff preserves the existing server-owned client flow", () =>
   assert.match(app, /if \(source === "login"\).*phase: "character-select"/s);
 });
 
-test("fresh login renders exactly four System Spirit positions before Garden entry", () => {
-  assert.match(app, /Array\.from\(\{ length: 4 \}/);
+test("fresh login renders server characters plus one unlabeled 2x3 creator slot", () => {
+  assert.match(app, /projection\.selection\.characters\.map/);
   assert.match(app, /className="system-character-grid"/);
-  assert.match(app, /New Character/);
-  assert.match(app, /Empty Spirit position/);
-  assert.match(app, /href="\/characters\/new"/);
+  assert.match(app, /system-grid-slot--2x3/);
+  assert.match(app, /aria-label="Create character"/);
+  assert.doesNotMatch(app, /New Character/);
+  assert.doesNotMatch(app, /Empty Spirit position/);
+});
+
+test("character selection seats items before exposing the Garden Wake Up item", () => {
+  assert.match(app, /phase: "character-ready"/);
+  assert.match(app, /system-item-traveler/);
+  assert.match(app, /transferTimerRef\.current = window\.setTimeout/);
+  assert.match(app, /onSelect\(current\.id\)/);
+  assert.match(app, /projectCharacterDrop/);
+  assert.match(app, /system-grid-slot--3x3/);
+  assert.match(app, /currentPlayerCount/);
+  assert.match(app, /onWake/);
+});
+
+test("System character passage keeps fixed Designer, Spirit, and character item slots", () => {
+  assert.match(app, /<SeatedAwareness disabled=\{poweringDown\} onRemove=\{logout\}/);
+  assert.match(app, /className="system-spirit-slot"/);
+  assert.match(app, /Total login time:/);
+  assert.match(app, /system-equipped-character system-grid-slot system-grid-slot--2x3/);
 });
 
 test("unapproved System actions remain inert placeholders", () => {

@@ -4,6 +4,7 @@ import {
   type AuthSession,
   type CharacterSelectionProjection,
   type GatewayCharacter,
+  type GatewayAccountSoul,
   type GatewayErrorCode,
   type GatewayResult,
   type GatewaySessionProjection,
@@ -85,12 +86,35 @@ function isAuthSession(value: unknown): value is AuthSession {
     && typeof value.requiresExplicitResume === "boolean";
 }
 
+function isSystemItem(value: unknown, width: number, height: number): boolean {
+  return isRecord(value)
+    && isString(value.definitionId)
+    && isString(value.name)
+    && isString(value.description)
+    && isNonNegativeInteger(value.quality)
+    && value.quality <= 9
+    && isRecord(value.footprint)
+    && value.footprint.width === width
+    && value.footprint.height === height;
+}
+
 function isGatewayCharacter(value: unknown): value is GatewayCharacter {
   if (!isRecord(value)) return false;
   return isString(value.id)
     && isString(value.displayName)
     && isString(value.archetype)
-    && typeof value.selectable === "boolean";
+    && typeof value.selectable === "boolean"
+    && (value.level === undefined || isNonNegativeInteger(value.level))
+    && isSystemItem(value.item, 2, 3)
+    && (value.item as Record<string, unknown>).definitionId === "character-soul-v1";
+}
+
+function isAccountSoul(value: unknown): value is GatewayAccountSoul {
+  return isRecord(value)
+    && isSystemItem(value.item, 2, 2)
+    && (value.item as Record<string, unknown>).definitionId === "account-soul-v1"
+    && isRecord(value.stats)
+    && isNonNegativeInteger(value.stats.totalLoginSeconds);
 }
 
 function isCharacterSelection(value: unknown): value is CharacterSelectionProjection {
@@ -105,7 +129,8 @@ function isCharacterSelection(value: unknown): value is CharacterSelectionProjec
 function isSessionProjection(value: unknown): value is GatewaySessionProjection {
   return isRecord(value)
     && isAuthSession(value.session)
-    && isCharacterSelection(value.selection);
+    && isCharacterSelection(value.selection)
+    && isAccountSoul(value.accountSoul);
 }
 
 function isGardenWorldPrewarm(value: unknown): value is GardenWorldPrewarm {
@@ -125,6 +150,10 @@ function isWorldDiscovery(value: unknown): value is WorldDiscovery {
     && isString(world.displayName)
     && typeof world.available === "boolean"
     && world.gameProtocolVersion === GATEWAY_PROTOCOL_VERSION
+    && isString(world.description)
+    && isNonNegativeInteger(world.currentPlayerCount)
+    && isSystemItem(world.previewItem, 3, 3)
+    && (world.previewItem as Record<string, unknown>).definitionId === "garden-world-v1"
   );
   if (!worldsAreValid) return false;
   return value.defaultWorldId === null || value.worlds.some(

@@ -9,6 +9,7 @@ export type ClientFlowState =
   | Readonly<{ phase: "login"; message: string | null }>
   | Readonly<{ phase: "resume-required"; projection: GatewaySessionProjection; message: string | null }>
   | Readonly<{ phase: "character-select"; projection: GatewaySessionProjection; message: string | null }>
+  | Readonly<{ phase: "character-ready"; projection: GatewaySessionProjection; message: string | null }>
   | Readonly<{
     phase: "gateway-entry";
     projection: GatewaySessionProjection;
@@ -46,11 +47,7 @@ export function stateFromSession(projection: GatewaySessionProjection): ClientFl
   ) {
     return { phase: "character-select", projection, message: null };
   }
-  return {
-    phase: "gateway-entry",
-    projection,
-    worldId: "garden",
-  };
+  return { phase: "character-ready", projection, message: null };
 }
 
 export function beginWorldBootstrap(

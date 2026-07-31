@@ -177,9 +177,9 @@
 .system-panel {
   position: relative;
   box-sizing: border-box;
-  width: min(46.5rem, 100%);
-  min-height: 44.5rem;
-  padding: clamp(5.8rem, 9vw, 6.6rem) clamp(1.25rem, 5vw, 4.75rem) clamp(1.5rem, 4vw, 2.6rem);
+  width: min(40rem, 100%);
+  min-height: 38rem;
+  padding: clamp(4.75rem, 8vw, 5.35rem) clamp(1.25rem, 5vw, 3.6rem) clamp(1.25rem, 4vw, 2.1rem);
   border: 1px solid #d9b655;
   border-radius: 1.25rem;
   background:
@@ -308,8 +308,86 @@
   image-rendering: pixelated;
 }
 .system-error {
-  margin-top: 1rem !important;
   color: #ffc6c6;
+}
+.system-login-error {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid #d96f6f80;
+  border-radius: 0.55rem;
+  background: linear-gradient(90deg, #5f202030, #b746461c 50%, #5f202030);
+  box-shadow: inset 0 0 1.25rem #d96f6f12;
+  color: #ffd6d6;
+  font-size: clamp(1.05rem, 2.5vw, 1.25rem);
+  line-height: 1.35;
+  text-align: center;
+}
+.system-login-progress {
+  align-content: center;
+  justify-items: stretch;
+  width: min(36.75rem, 100%);
+  min-height: 26rem;
+  margin-inline: auto;
+  gap: 1.1rem !important;
+  text-align: center;
+}
+.system-login-progress__eyebrow {
+  color: #48d7df;
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.system-login-progress h1 {
+  color: #d2ad48;
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-indent: 0.12em;
+}
+.system-login-progress__status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 1rem;
+  width: 100%;
+  padding-top: 1rem;
+  border-top: 1px solid #d2ad4857;
+  text-align: left;
+}
+.system-login-progress__status p {
+  color: #c4d3d0;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+.system-login-progress__status output {
+  color: #e7c66e;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+.system-login-progress progress {
+  box-sizing: border-box;
+  width: 100%;
+  height: 0.8rem;
+  overflow: hidden;
+  border: 1px solid #d2ad4880;
+  border-radius: 999rem;
+  background: #02090d;
+  color: #48d7df;
+  accent-color: #48d7df;
+}
+.system-login-progress progress::-webkit-progress-bar {
+  background: #02090d;
+}
+.system-login-progress progress::-webkit-progress-value {
+  border-radius: inherit;
+  background: linear-gradient(90deg, #177b83, #48d7df);
+  box-shadow: 0 0 0.85rem #48d7df80;
+}
+.system-login-progress progress::-moz-progress-bar {
+  border-radius: inherit;
+  background: linear-gradient(90deg, #177b83, #48d7df);
+  box-shadow: 0 0 0.85rem #48d7df80;
 }
 .system-seated-key {
   position: absolute;
@@ -318,10 +396,10 @@
   left: 50%;
   display: grid;
   place-items: center;
-  width: clamp(7.5rem, 10vw, 9.75rem);
-  height: clamp(7.5rem, 10vw, 9.75rem);
+  width: 4rem;
+  height: 4rem;
   min-height: 0;
-  padding: 0.75rem;
+  padding: 0.35rem;
   overflow: hidden;
   background:
     linear-gradient(90deg, transparent calc(50% - 0.5px), #48d7df44 50%, transparent calc(50% + 0.5px)),
@@ -341,8 +419,8 @@
 }
 .system-access-shell {
   position: relative;
-  width: min(46.5rem, 100%);
-  padding-top: clamp(4.65rem, 6vw, 5.35rem);
+  width: min(40rem, 100%);
+  padding-top: 2rem;
 }
 .system-login-form {
   gap: 1rem !important;
@@ -673,13 +751,9 @@
   .system-access-shell {
     padding-top: calc(var(--inventory-grid-unit) * 0.8);
   }
-  .system-seated-key {
-    width: 6.75rem;
-    height: 6.75rem;
-  }
   .system-panel {
     min-height: 0;
-    padding: 5.75rem 3rem 1.35rem;
+    padding: 4.5rem 3rem 1.35rem;
   }
   .system-login-form {
     gap: 0.65rem !important;

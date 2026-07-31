@@ -23,11 +23,26 @@ export type AuthSession = Readonly<{
   requiresExplicitResume: boolean;
 }>;
 
+export type GatewaySystemItem = Readonly<{
+  definitionId: string;
+  name: string;
+  description: string;
+  quality: number;
+  footprint: Readonly<{ width: number; height: number }>;
+}>;
+
 export type GatewayCharacter = Readonly<{
   id: string;
   displayName: string;
   archetype: string;
   selectable: boolean;
+  level?: number;
+  item: GatewaySystemItem;
+}>;
+
+export type GatewayAccountSoul = Readonly<{
+  item: GatewaySystemItem;
+  stats: Readonly<{ totalLoginSeconds: number }>;
 }>;
 
 export type CharacterSelectionProjection = Readonly<{
@@ -42,6 +57,7 @@ export type CharacterSelectionProjection = Readonly<{
 export type GatewaySessionProjection = Readonly<{
   session: AuthSession;
   selection: CharacterSelectionProjection;
+  accountSoul: GatewayAccountSoul;
 }>;
 
 export type GardenWorldPrewarm = Readonly<{
@@ -129,6 +145,9 @@ export type WorldDiscovery = Readonly<{
     displayName: string;
     available: boolean;
     gameProtocolVersion: typeof GATEWAY_PROTOCOL_VERSION;
+    description: string;
+    currentPlayerCount: number;
+    previewItem: GatewaySystemItem;
   }>[];
 }>;
 

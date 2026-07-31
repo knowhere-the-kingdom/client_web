@@ -10,8 +10,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "test:character-placement": "node --experimental-strip-types --test scripts/character-placement.test.mjs",
     "typecheck": "tsc -b --pretty false",
-    "test": "node --experimental-strip-types --test scripts/movement-speed.test.mjs scripts/staxel-character-preview.test.mjs scripts/gateway-health-config.test.mjs scripts/gateway-client-contract.test.mjs scripts/login-flow.test.mjs scripts/system-flow.test.mjs scripts/system-theme.test.mjs scripts/system-theme-integration.test.mjs scripts/dashboard-shell.test.mjs scripts/inventory-layout.test.mjs scripts/inventory-primitives.test.mjs scripts/cursor-inventory.test.mjs scripts/tooltip-settings.test.mjs scripts/inventory-action-bindings.test.mjs scripts/equipment-layout.test.mjs scripts/world-bootstrap.test.mjs scripts/player-controller-runtime.test.mjs scripts/character-input-settings.test.mjs scripts/crosshair-settings.test.mjs scripts/sun-orbit.test.mjs scripts/compass-heading.test.mjs scripts/hud-event-log-layout.test.mjs",
+    "test": "node --experimental-strip-types --test scripts/movement-speed.test.mjs scripts/staxel-character-preview.test.mjs scripts/gateway-health-config.test.mjs scripts/gateway-client-contract.test.mjs scripts/login-flow.test.mjs scripts/system-flow.test.mjs scripts/system-theme.test.mjs scripts/system-theme-integration.test.mjs scripts/system-login-panel.test.mjs scripts/dashboard-shell.test.mjs scripts/inventory-layout.test.mjs scripts/inventory-primitives.test.mjs scripts/cursor-inventory.test.mjs scripts/tooltip-settings.test.mjs scripts/inventory-action-bindings.test.mjs scripts/equipment-layout.test.mjs scripts/world-bootstrap.test.mjs scripts/player-controller-runtime.test.mjs scripts/character-input-settings.test.mjs scripts/crosshair-settings.test.mjs scripts/sun-orbit.test.mjs scripts/compass-heading.test.mjs scripts/hud-event-log-layout.test.mjs",
     "asset:validate:staxel": "node --experimental-strip-types --test scripts/staxel-character-preview.test.mjs"
   },
   "dependencies": {

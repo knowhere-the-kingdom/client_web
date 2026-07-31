@@ -40,10 +40,11 @@ test("the default Gateway seam fails closed", async () => {
   assert.match(result.message, /not available yet/i);
 });
 
-test("character selection exposes a placeholder creator with a back action", async () => {
+test("character selection exposes an unlabeled empty item slot and creator back action", async () => {
   const appSource = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
-  assert.match(appSource, /href="\/characters\/new"/);
-  assert.match(appSource, />Create a new character<\/a>/);
+  assert.match(appSource, /aria-label="Create character"/);
+  assert.doesNotMatch(appSource, />Create a new character<\/a>/);
+  assert.doesNotMatch(appSource, /Empty Spirit position/);
   assert.match(appSource, />Back to characters<\/button>/);
   assert.match(appSource, /route === "\/characters\/new"/);
 });
@@ -64,9 +65,5 @@ test("a valid restored session resumes through the selected Garden without showi
       characters: selection.characters,
     },
   });
-  assert.deepEqual(restored, {
-    phase: "gateway-entry",
-    projection: restored.projection,
-    worldId: "garden",
-  });
+  assert.deepEqual(restored, { phase: "character-ready", projection: restored.projection, message: null });
 });

@@ -109,6 +109,66 @@ export const DESIGNER_RECEPTACLE: InventorySlotDefinitionV1 = Object.freeze({
   acceptedItemIds: Object.freeze([AWARENESS_ITEM.id]),
 });
 
+export const ACCOUNT_SOUL_ITEM: InventoryItemDefinitionV1 = Object.freeze({
+  id: "account-soul-v1",
+  name: "Account Soul",
+  itemType: "Soul",
+  itemCategory: "Spirit",
+  description: "The authenticated account spirit and its accumulated history.",
+  quality: 8,
+  materialType: "cosmic",
+  iconPath: "/inventory/items/icons/account-soul.svg",
+  gridSize: Object.freeze({ width: 2, height: 2 }),
+});
+
+export const CHARACTER_SOUL_ITEM: InventoryItemDefinitionV1 = Object.freeze({
+  id: "character-soul-v1",
+  name: "Character Soul",
+  itemType: "Character",
+  itemCategory: "Spirit",
+  description: "A playable character possessed by the authenticated account.",
+  quality: 6,
+  materialType: "spirit",
+  iconPath: "/inventory/items/icons/character-soul.svg",
+  gridSize: Object.freeze({ width: 2, height: 3 }),
+});
+
+export const GARDEN_WORLD_ITEM: InventoryItemDefinitionV1 = Object.freeze({
+  id: "garden-world-v1",
+  name: "Garden",
+  itemType: "World",
+  itemCategory: "World",
+  description: "The player's local Garden world.",
+  quality: 7,
+  materialType: "world",
+  iconPath: "/inventory/items/icons/garden-world.svg",
+  gridSize: Object.freeze({ width: 3, height: 3 }),
+});
+
+export const SPIRIT_RECEPTACLE: InventorySlotDefinitionV1 = Object.freeze({
+  id: "spirit-account",
+  label: "Spirit Slot",
+  gridSize: Object.freeze({ width: 2, height: 2 }),
+  acceptedItemTypes: Object.freeze(["Soul"]),
+  acceptedItemIds: Object.freeze([ACCOUNT_SOUL_ITEM.id]),
+});
+
+export const CHARACTER_RECEPTACLE: InventorySlotDefinitionV1 = Object.freeze({
+  id: "active-character",
+  label: "Character Slot",
+  gridSize: Object.freeze({ width: 2, height: 3 }),
+  acceptedItemTypes: Object.freeze(["Character"]),
+  acceptedItemIds: Object.freeze([CHARACTER_SOUL_ITEM.id]),
+});
+
+export const WORLD_RECEPTACLE: InventorySlotDefinitionV1 = Object.freeze({
+  id: "wake-world",
+  label: "World Slot",
+  gridSize: Object.freeze({ width: 3, height: 3 }),
+  acceptedItemTypes: Object.freeze(["World"]),
+  acceptedItemIds: Object.freeze([GARDEN_WORLD_ITEM.id]),
+});
+
 export function inventoryQualityName(quality: InventoryQuality): typeof INVENTORY_QUALITY_NAMES[number] {
   return INVENTORY_QUALITY_NAMES[quality];
 }

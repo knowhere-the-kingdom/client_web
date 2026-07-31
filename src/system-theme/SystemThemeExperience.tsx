@@ -183,10 +183,11 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
 
   const panel = flow.stage === "registering" ? <section><h1>Register</h1><p>Registration is unavailable until the required phone-based contract is approved.</p><button type="button" onClick={() => dispatch({ type: "show-login" })}>Back to login</button></section>
     : flow.stage === "recovering" ? <section><h1>Recover access</h1><p>Recovery is unavailable until its generic Gateway acknowledgement and delivery contract are approved.</p><button type="button" onClick={() => dispatch({ type: "show-login" })}>Back to login</button></section>
-    : flow.stage === "character-select" ? <section><h1>Select Character</h1><p>The four-position Spirit projection is not available yet. No positions have been inferred from the current character list.</p></section>
+    : flow.stage === "character-select" ? <section><h1>Select Character</h1><p>Preparing your server-confirmed Spirit inventory.</p></section>
     : flow.stage === "character-create" ? <section><h1>Create Character</h1><p>Character creation requires a server-confirmed profile and ownership projection. No request is mounted.</p></section>
     : flow.stage === "login" ? <form className="system-login-form" ref={loginForm} onSubmit={login}>
       <header className="system-login-heading"><span>System Access</span><h1>KNOWHERE</h1><i aria-hidden="true" /></header>
+      {flow.error ? <p className="system-error system-login-error" role="alert">{safeCopy[flow.error]}</p> : null}
       <label className="system-login-field"><span className="system-field-icon is-user" aria-hidden="true" /><input name="username" required autoComplete="username" placeholder="Username" aria-label="Username" /></label>
       <label className="system-login-field"><span className="system-field-icon is-lock" aria-hidden="true" /><input name="password" type="password" required autoComplete="current-password" placeholder="Password" aria-label="Password" /></label>
       <button className="system-login-submit" type="submit">LOGIN</button>
@@ -200,6 +201,14 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
         </a>
       </div>
     </form>
-    : <section aria-live="polite"><h1>{flow.stage === "session-check" ? "Checking session" : flow.stage === "garden-entry" ? "Garden entry unavailable" : "Connecting"}</h1><progress max="100" value={flow.progress?.percent ?? 10} /><p>{flow.stage === "garden-entry" ? "Waiting for the reviewed server-selected Garden contract." : flow.progress?.message ?? "Connecting to server"}</p></section>;
-  return <main className="system-stage"><div className="system-access-shell"><button className="system-seated-key" onClick={() => void removeKey()}><img src={AWARENESS_ITEM.iconPath} alt="" /><span className="sr-only">Remove Awareness and log out</span></button><div className="system-panel">{panel}{flow.error ? <p className="system-error" role="alert">{safeCopy[flow.error]}</p> : null}</div></div>{closing ? <span className="system-tube-close" /> : null}</main>;
+    : <section className="system-login-progress" aria-live="polite">
+      <span className="system-login-progress__eyebrow">System Access</span>
+      <h1>{flow.stage === "session-check" ? "Checking session" : flow.stage === "garden-entry" ? "Preparing Garden" : "Connecting"}</h1>
+      <div className="system-login-progress__status">
+        <p>{flow.stage === "garden-entry" ? "Confirming your server-selected Garden." : flow.progress?.message ?? "Connecting to server"}</p>
+        <output aria-label="Login progress">{flow.progress?.percent ?? 10}%</output>
+      </div>
+      <progress max="100" value={flow.progress?.percent ?? 10} />
+    </section>;
+  return <main className="system-stage"><div className="system-access-shell"><button className="system-seated-key" onClick={() => void removeKey()}><img src={AWARENESS_ITEM.iconPath} alt="" /><span className="sr-only">Remove Awareness and log out</span></button><div className="system-panel">{panel}{flow.stage !== "login" && flow.error ? <p className="system-error" role="alert">{safeCopy[flow.error]}</p> : null}</div></div>{closing ? <span className="system-tube-close" /> : null}</main>;
 }
