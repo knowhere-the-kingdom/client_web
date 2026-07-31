@@ -37,6 +37,21 @@ export function clearCursorInventory(state: CursorInventoryState): CursorInvento
   return { ...state, heldItemId: null };
 }
 
+export function looseWorldLocation(
+  x: number,
+  y: number,
+  viewportWidth: number,
+  viewportHeight: number,
+): CanvasItemLocation {
+  const width = Math.max(1, viewportWidth);
+  const height = Math.max(1, viewportHeight);
+  return {
+    kind: "world",
+    x: Math.max(0, Math.min(1, x / width)),
+    y: Math.max(0, Math.min(1, y / height)),
+  };
+}
+
 export function planCursorPlacement(
   state: CursorInventoryState,
   items: Readonly<Record<string, CanvasItem>>,

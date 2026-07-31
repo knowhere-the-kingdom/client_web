@@ -5,6 +5,7 @@ import {
   EMPTY_CURSOR_INVENTORY,
   clearCursorInventory,
   holdCursorItem,
+  looseWorldLocation,
   moveCursor,
   planCursorPlacement,
 } from "../src/inventory/cursor-inventory.ts";
@@ -36,4 +37,10 @@ test("incompatible swaps and blocked grid placement fail closed", () => {
   const held = holdCursorItem(EMPTY_CURSOR_INVENTORY, "key");
   assert.deepEqual(planCursorPlacement(held, items, items.map.loc, false, "map"), { ok: false, code: "incompatible" });
   assert.deepEqual(planCursorPlacement(held, items, { kind: "grid", bagId: "stash", x: 2, y: 2 }, true, null, false), { ok: false, code: "occupied_grid" });
+  assert.equal(held.heldItemId, "key");
+});
+
+test("loose world placement is normalized to the visible game screen", () => {
+  assert.deepEqual(looseWorldLocation(960, 540, 1920, 1080), { kind: "world", x: 0.5, y: 0.5 });
+  assert.deepEqual(looseWorldLocation(-10, 1200, 1920, 1080), { kind: "world", x: 0, y: 1 });
 });

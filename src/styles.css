@@ -2763,6 +2763,70 @@ body > .atlas-slot-tooltip.is-cursor { transform: translate(0.75rem, 0.75rem); }
 .atlas-cursor-inventory .atlas-slot-art,
 .atlas-cursor-inventory .atlas-icon { width: 72%; height: 72%; object-fit: contain; }
 .atlas-cursor-inventory > span { position: absolute; right: 0.2rem; bottom: 0.12rem; color: var(--atlas-text-tertiary); font-size: 0.45rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.atlas-world-drop-surface {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: copy;
+}
+.atlas-world-loose-item {
+  position: fixed;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: calc(var(--prototype-grid-unit, 2rem) * var(--item-columns, 1));
+  height: calc(var(--prototype-grid-unit, 2rem) * var(--item-rows, 1));
+  padding: 0.25rem;
+  overflow: hidden;
+  border: 0.08rem solid var(--atlas-gold-muted);
+  border-radius: var(--atlas-radius-small);
+  background: color-mix(in srgb, var(--atlas-surface-slot) 82%, transparent);
+  color: var(--atlas-text-primary);
+  box-shadow: 0 0 0.85rem color-mix(in srgb, var(--atlas-gold) 28%, transparent);
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+}
+.atlas-world-loose-item .atlas-slot-art,
+.atlas-world-loose-item .atlas-icon { width: 78%; height: 78%; object-fit: contain; }
+.atlas-world-loose-item > span { position: absolute; right: 0.18rem; bottom: 0.1rem; max-width: calc(100% - 0.36rem); overflow: hidden; color: var(--atlas-text-tertiary); font-size: 0.45rem; text-overflow: ellipsis; white-space: nowrap; }
+.atlas-item-drop-projection {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  top: 50%;
+  width: calc(100% * var(--projection-columns, 1));
+  height: calc(100% * var(--projection-rows, 1));
+  border: 0.1rem solid var(--atlas-success);
+  background: color-mix(in srgb, var(--atlas-success) 14%, transparent);
+  box-shadow: inset 0 0 0.8rem color-mix(in srgb, var(--atlas-success) 24%, transparent), 0 0 0.8rem color-mix(in srgb, var(--atlas-success) 34%, transparent);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.atlas-item-drop-projection.is-invalid {
+  border-color: var(--atlas-alert, #ff3d4f);
+  background: color-mix(in srgb, var(--atlas-alert, #ff3d4f) 18%, transparent);
+}
+.atlas-grid-drop-projection {
+  position: absolute;
+  z-index: 6;
+  left: calc(var(--prototype-inventory-unit, 3rem) * var(--item-x));
+  top: calc(var(--prototype-inventory-unit, 3rem) * var(--item-y));
+  width: calc(var(--prototype-inventory-unit, 3rem) * var(--item-columns));
+  height: calc(var(--prototype-inventory-unit, 3rem) * var(--item-rows));
+  border: 0.1rem solid var(--atlas-success);
+  background: color-mix(in srgb, var(--atlas-success) 16%, transparent);
+  box-shadow: inset 0 0 0.85rem color-mix(in srgb, var(--atlas-success) 22%, transparent), 0 0 0.7rem color-mix(in srgb, var(--atlas-success) 32%, transparent);
+  pointer-events: none;
+}
+.atlas-grid-drop-projection.is-invalid {
+  border-color: var(--atlas-alert, #ff3d4f);
+  background: color-mix(in srgb, var(--atlas-alert, #ff3d4f) 18%, transparent);
+}
 .atlas-hud.is-alerting { --atlas-alert: #ff3d4f; }
 .atlas-hud.is-alerting .atlas-cursor-inventory,
 .atlas-hud .is-drop-invalid { border-color: var(--atlas-alert, #ff3d4f) !important; animation: atlas-alert-flash 180ms ease-in-out 3; box-shadow: 0 0 1.2rem color-mix(in srgb, var(--atlas-alert, #ff3d4f) 72%, transparent); }

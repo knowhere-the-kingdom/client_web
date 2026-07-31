@@ -130,6 +130,7 @@ export type CanvasItemType =
 
 export type CanvasItemLocation =
   | { kind: "cursor" }
+  | { kind: "world"; x: number; y: number }
   | { kind: "hud"; slot: string }
   | { kind: "equip"; charId: string; slot: string }
   | { kind: "grid"; bagId: string; x: number; y: number }

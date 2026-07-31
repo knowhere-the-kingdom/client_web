@@ -154,3 +154,16 @@ test("the mounted System key gate uses inventory primitives without the obsolete
   assert.doesNotMatch(login, /className="designer-key"|designer-slot__mark/);
   assert.doesNotMatch(styles, /\.designer-key|border:\s*1px dashed/);
 });
+
+test("game HUD keeps cursor drops projected, loose, and fail-closed", async () => {
+  const hud = await readFile(new URL("../src/hud/KnowhereHud.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.match(hud, /className="atlas-world-drop-surface"/);
+  assert.match(hud, /looseWorldLocation\(event\.clientX, event\.clientY/);
+  assert.match(hud, /className={`atlas-grid-drop-projection/);
+  assert.match(hud, /projectionItem={heldCursorItem}/);
+  assert.match(hud, /if \(!canPlaceGridItem[\s\S]*return false/);
+  assert.match(styles, /\.atlas-item-drop-projection\s*\{/);
+  assert.match(styles, /\.atlas-grid-drop-projection\s*\{/);
+  assert.match(styles, /\.atlas-world-loose-item\s*\{/);
+});

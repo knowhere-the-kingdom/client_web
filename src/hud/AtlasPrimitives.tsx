@@ -116,6 +116,7 @@ export function AtlasItemSlot({
   hotkey,
   selected = false,
   dropState,
+  projectionItem,
   className = "",
   style,
   onClick,
@@ -124,6 +125,8 @@ export function AtlasItemSlot({
   onDragOver,
   onDragStart,
   onDragEnd,
+  onPointerEnter,
+  onPointerLeave,
 }: {
   item?: CanvasItem;
   label: string;
@@ -131,6 +134,7 @@ export function AtlasItemSlot({
   hotkey?: string;
   selected?: boolean;
   dropState?: "valid" | "invalid";
+  projectionItem?: CanvasItem;
   className?: string;
   style?: CSSProperties;
   onClick?: () => void;
@@ -139,6 +143,8 @@ export function AtlasItemSlot({
   onDragOver?: () => void;
   onDragStart?: (item: CanvasItem) => void;
   onDragEnd?: () => void;
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
 }) {
   const itemQuantity = item?.quantity && item.quantity > 1 ? ` Quantity ${item.quantity}.` : "";
   const itemCooldown = item?.stats?.cooldownRemaining && item.stats.cooldownRemaining > 0 ? ` Cooldown ${item.stats.cooldownRemaining.toFixed(1)} seconds.` : "";
@@ -198,12 +204,15 @@ export function AtlasItemSlot({
         onMouseLeave={hideTooltip}
         onFocus={() => showTooltip()}
         onBlur={hideTooltip}
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
         onDragStart={handleDragStart}
         onDragEnd={onDragEnd}
         onDragOver={onDrop ? (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; onDragOver?.(); } : undefined}
         onDrop={onDrop}
       >
         {hotkey ? <span className="atlas-slot-hotkey">{hotkey}</span> : null}
+        {projectionItem && dropState ? <span className={`atlas-item-drop-projection is-${dropState}`} style={{ "--projection-columns": projectionItem.w, "--projection-rows": projectionItem.h } as CSSProperties} aria-hidden="true" /> : null}
         {item ? (
           <>
             <AtlasItemIcon item={item} size={size === "action" ? 1.8 : size === "small" ? 1 : size === "micro" ? 0.85 : 1.5} />
