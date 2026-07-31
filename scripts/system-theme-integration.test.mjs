@@ -55,6 +55,18 @@ test("System character passage keeps fixed Designer, Spirit, and character item 
   assert.match(app, /system-equipped-character system-grid-slot system-grid-slot--2x3/);
 });
 
+test("character selection uses the framed System composition instead of a generic card panel", async () => {
+  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.match(app, /className="system-character-frame"/);
+  assert.match(app, /className="system-character-heading"/);
+  assert.match(app, /className="system-character-content"/);
+  assert.match(app, /is-wake-up/);
+  assert.match(app, /data-quality=\{character\.item\.quality\}/);
+  assert.match(styles, /\.system-character-grid\s*\{[^}]+grid-template-columns:\s*repeat\(2,/s);
+  assert.match(styles, /\.system-character-frame\s*\{[^}]+border:/s);
+  assert.match(styles, /\.system-character-name\s*\{[^}]+bottom:\s*calc\(100%/s);
+});
+
 test("unapproved System actions remain inert placeholders", () => {
   assert.match(experience, /disabled title="Recovery is not configured">Forgot Password/);
   assert.match(experience, /disabled title="Discord state and PKCE handshake is not configured">.*Login with Discord/);
