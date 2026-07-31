@@ -91,6 +91,16 @@ test("Awareness visibly travels into and out of the cursor inventory", () => {
   assert.match(css, /prefers-reduced-motion: reduce/);
 });
 
+test("clicking empty game-screen space returns held Awareness to that point", () => {
+  assert.match(experience, /onClick=\{dropKeyOnGameScreen\}/);
+  assert.match(experience, /if \(!held \|\| transfer\) return/);
+  assert.match(experience, /closest\("\.system-designer"\)/);
+  assert.match(experience, /kind: "place", from: cursorPoint, to: point/);
+  assert.match(experience, /setLooseKeyPoint/);
+  assert.match(experience, /dispatch\(\{ type: "drop-key" \}\)/);
+  assert.match(css, /\.system-key\.is-positioned\s*\{[^}]+position: absolute;[^}]+translate\(-50%, -50%\)/s);
+});
+
 test("System login chrome uses rounded controls and an unframed QR", () => {
   assert.match(css, /\.system-panel\s*\{[^}]+border-radius: 1\.25rem/s);
   assert.match(css, /\.system-login-submit\s*\{[^}]+border-radius: 0\.75rem/s);

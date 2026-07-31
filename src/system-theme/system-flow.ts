@@ -31,6 +31,7 @@ export type SystemSafeError =
 export type SystemFlowEvent =
   | { type: "identify" }
   | { type: "hold-key" }
+  | { type: "drop-key" }
   | { type: "insert-key" }
   | { type: "session-anonymous"; generation: number }
   | { type: "session-ready"; generation: number; projection: GatewaySessionProjection }
@@ -69,6 +70,7 @@ export function reduceSystemFlow(state: SystemFlowState, event: SystemFlowEvent)
   switch (event.type) {
     case "identify": return state.stage === "splash" ? { ...state, stage: "identified" } : state;
     case "hold-key": return state.stage === "identified" ? { ...state, stage: "designer-ready" } : state;
+    case "drop-key": return state.stage === "designer-ready" ? { ...state, stage: "identified" } : state;
     case "insert-key": return state.stage === "designer-ready" ? { ...state, stage: "session-check", error: null } : state;
     case "session-anonymous": return state.stage === "session-check" ? { ...state, stage: "login" } : state;
     case "session-ready": return state.stage === "session-check" || state.stage === "connecting"

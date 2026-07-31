@@ -46,6 +46,10 @@
   height: calc(var(--inventory-grid-unit) * 2 + 4px);
   min-block-size: 0;
 }
+.system-key.is-positioned {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
 .system-key .inventory-item.is-held-source {
   visibility: hidden;
 }

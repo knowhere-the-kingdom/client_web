@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useReducer, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent } from "react";
 import QRCode from "qrcode";
 import type { GatewayClient } from "../api/gateway-client.ts";
 import type { GatewaySessionProjection } from "../api/gateway-contract.ts";
@@ -31,11 +31,13 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
   const [flow, dispatch] = useReducer(reduceSystemFlow, initialSystemFlowState);
   const [movement, setMovement] = useState(EMPTY_INVENTORY_MOVEMENT);
   const [cursorPoint, setCursorPoint] = useState({ x: 0, y: 0 });
+  const [looseKeyPoint, setLooseKeyPoint] = useState<Readonly<{ x: number; y: number }> | null>(null);
   const [closing, setClosing] = useState(false);
   const [qrSource, setQrSource] = useState("");
   const [transfer, setTransfer] = useState<TransferAnimation | null>(null);
   const request = useRef<AbortController | null>(null);
   const loginForm = useRef<HTMLFormElement | null>(null);
+  const gameScreen = useRef<HTMLElement | null>(null);
   const designer = useRef<HTMLDivElement | null>(null);
   const transferTimer = useRef<number | null>(null);
   const removalInFlight = useRef(false);
@@ -90,6 +92,22 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
     void gateway.prewarmGarden();
     queueMicrotask(() => void checkSession());
   }
+  function finishLooseDrop(point: Readonly<{ x: number; y: number }>) {
+    transferTimer.current = null;
+    const bounds = gameScreen.current?.getBoundingClientRect();
+    setLooseKeyPoint(bounds ? { x: point.x - bounds.left, y: point.y - bounds.top } : point);
+    setMovement(EMPTY_INVENTORY_MOVEMENT);
+    setTransfer(null);
+    dispatch({ type: "drop-key" });
+  }
+  function dropKeyOnGameScreen(event: MouseEvent<HTMLElement>) {
+    if (!held || transfer) return;
+    if (event.target instanceof Element && event.target.closest(".system-designer")) return;
+    const point = { x: event.clientX, y: event.clientY };
+    setTransfer({ kind: "place", from: cursorPoint, to: point });
+    if (transferTimer.current !== null) window.clearTimeout(transferTimer.current);
+    transferTimer.current = window.setTimeout(() => finishLooseDrop(point), 220);
+  }
   function insertKey() {
     if (transfer || !placeHeldInventoryItem(movement, AWARENESS_INSTANCE, true).ok) return;
     const target = designer.current?.querySelector(".system-designer__slot")?.getBoundingClientRect();
@@ -123,9 +141,14 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
     if (controller.signal.aborted) return; if (!result.ok) return fail(g, result.code);
     progress(g, correlationId, 2, 100, "Message received"); await acceptSession(result.value, "login", controller);
   }
-  if (flow.stage === "splash" || flow.stage === "identified" || flow.stage === "designer-ready") return <main className="system-stage system-theme system-splash">
+  if (flow.stage === "splash" || flow.stage === "identified" || flow.stage === "designer-ready") return <main className="system-stage system-theme system-splash" ref={gameScreen} onClick={dropKeyOnGameScreen}>
     <h1 className="sr-only">Unknown item</h1>{held ? <div className="system-designer" ref={designer}><InventorySlot definition={DESIGNER_RECEPTACLE} heldItem={{ definition: AWARENESS_ITEM, instance: AWARENESS_INSTANCE }} className="designer-slot system-designer__slot" onPlace={insertKey} onCancel={() => { cancelMovement(); dispatch({ type: "identify" }); }} /><span className="system-designer__label">Designer</span></div> : null}
-    <div className={`system-key ${flow.stage === "splash" ? "is-unknown" : "is-identified"}`} data-quality={flow.stage === "splash" ? undefined : "8"} data-quality-state={held ? "held" : "reveal"}><InventoryItemCard definition={AWARENESS_ITEM} instance={AWARENESS_INSTANCE} held={held} cancelOnDragEnd={false} showTooltip={flow.stage !== "splash"} onPickUp={(_, pointer) => {
+    <div
+      className={`system-key ${flow.stage === "splash" ? "is-unknown" : "is-identified"}${looseKeyPoint ? " is-positioned" : ""}`}
+      style={looseKeyPoint ? { left: looseKeyPoint.x, top: looseKeyPoint.y } : undefined}
+      data-quality={flow.stage === "splash" ? undefined : "8"}
+      data-quality-state={held ? "held" : "reveal"}
+    ><InventoryItemCard definition={AWARENESS_ITEM} instance={AWARENESS_INSTANCE} held={held} cancelOnDragEnd={false} showTooltip={flow.stage !== "splash"} onPickUp={(_, pointer) => {
       if (flow.stage === "splash") {
         dispatch({ type: "identify" });
         return;
