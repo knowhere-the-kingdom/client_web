@@ -222,6 +222,32 @@
   transform: translateX(-50%);
 }
 
+.slot-tooltip[data-tooltip-placement="right"] {
+  left: calc(100% + var(--inventory-label-gap));
+  bottom: 50%;
+  transform: translateY(50%);
+}
+
+.slot-tooltip[data-tooltip-placement="left"] {
+  right: calc(100% + var(--inventory-label-gap));
+  bottom: 50%;
+  left: auto;
+  transform: translateY(50%);
+}
+
+.slot-tooltip[data-tooltip-placement="below"] {
+  top: calc(100% + var(--inventory-label-gap));
+  bottom: auto;
+}
+
+.slot-tooltip[data-tooltip-placement="cursor"] {
+  position: fixed;
+  top: calc(var(--tooltip-cursor-y) + 0.75rem);
+  left: calc(var(--tooltip-cursor-x) + 0.75rem);
+  bottom: auto;
+  transform: none;
+}
+
 .inventory-item-shell:hover .slot-tooltip,
 .inventory-item-shell:focus-within .slot-tooltip { display: grid; gap: var(--inventory-label-gap); }
 

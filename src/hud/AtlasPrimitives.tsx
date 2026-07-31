@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, MouseEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { CanvasItem } from "./types";
+import { defaultTooltipSettings, readTooltipSettings, TOOLTIP_SETTINGS_EVENT, type TooltipPlacement, type TooltipSettings } from "./tooltipSettings";
 import backpackArt from "../assets/ui/hud-icons/backpack-pixel.png";
 import characterArt from "../assets/ui/hud-icons/character-pixel.png";
 import drinkArt from "../assets/ui/hud-icons/drink-pixel.png";
@@ -147,19 +148,28 @@ export function AtlasItemSlot({
   const durabilityMaximum = item?.stats?.durabilityMaximum ?? 100;
   const durabilityPercent = durability === undefined ? null : Math.max(0, Math.min(100, (durability / Math.max(1, durabilityMaximum)) * 100));
   const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; below: boolean }>({ visible: false, x: 0, y: 0, below: false });
+  const [tooltipPlacement, setTooltipPlacement] = useState<TooltipPlacement>(() => typeof window === "undefined" ? defaultTooltipSettings.placement : readTooltipSettings(window.localStorage).placement);
+  const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number }>({ visible: false, x: 0, y: 0 });
 
-  const showTooltip = () => {
+  useEffect(() => {
+    const handleSettings = (event: Event) => setTooltipPlacement((event as CustomEvent<TooltipSettings>).detail?.placement ?? readTooltipSettings(window.localStorage).placement);
+    window.addEventListener(TOOLTIP_SETTINGS_EVENT, handleSettings);
+    return () => window.removeEventListener(TOOLTIP_SETTINGS_EVENT, handleSettings);
+  }, []);
+
+  const showTooltip = (pointer?: Readonly<{ x: number; y: number }>) => {
     const button = buttonRef.current;
     if (!button) return;
     const rect = button.getBoundingClientRect();
-    const viewportPadding = 8;
-    const tooltipWidth = Math.min(224, window.innerWidth - viewportPadding * 2);
-    const halfWidth = tooltipWidth / 2;
-    const x = Math.max(viewportPadding + halfWidth, Math.min(window.innerWidth - viewportPadding - halfWidth, rect.left + rect.width / 2));
-    const below = rect.top < 64;
-    const y = below ? rect.bottom : rect.top;
-    setTooltip({ visible: true, x, y, below });
+    const x = tooltipPlacement === "left" ? rect.left
+      : tooltipPlacement === "right" ? rect.right
+      : tooltipPlacement === "cursor" && pointer ? pointer.x
+      : rect.left + rect.width / 2;
+    const y = tooltipPlacement === "above" ? rect.top
+      : tooltipPlacement === "below" ? rect.bottom
+      : tooltipPlacement === "cursor" && pointer ? pointer.y
+      : rect.top + rect.height / 2;
+    setTooltip({ visible: true, x, y });
   };
 
   const hideTooltip = () => setTooltip((current) => ({ ...current, visible: false }));
@@ -181,9 +191,12 @@ export function AtlasItemSlot({
         draggable={Boolean(item && onDragStart)}
         onClick={onClick}
         onContextMenu={onContextMenu}
-        onMouseEnter={showTooltip}
+        onMouseEnter={(event) => showTooltip({ x: event.clientX, y: event.clientY })}
+        onMouseMove={(event) => {
+          if (tooltipPlacement === "cursor") showTooltip({ x: event.clientX, y: event.clientY });
+        }}
         onMouseLeave={hideTooltip}
-        onFocus={showTooltip}
+        onFocus={() => showTooltip()}
         onBlur={hideTooltip}
         onDragStart={handleDragStart}
         onDragEnd={onDragEnd}
@@ -206,7 +219,7 @@ export function AtlasItemSlot({
       <span className="atlas-slot-caption">{label}</span>
       </div>
       {tooltip.visible && typeof document !== "undefined" ? createPortal(
-        <span className={`atlas-slot-tooltip ${tooltip.below ? "is-below" : "is-above"}`} style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }} role="tooltip">{tooltipText}</span>,
+        <span className={`atlas-slot-tooltip is-${tooltipPlacement}`} style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }} role="tooltip">{tooltipText}</span>,
         document.body,
       ) : null}
     </>

@@ -2735,8 +2735,49 @@ input {
 .atlas-movement-action small,.atlas-movement-action span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Tooltips are portaled and clamped in script, so transformed HUD anchors cannot clip them. */
-body > .atlas-slot-tooltip { position: fixed; z-index: 160; right: auto; bottom: auto; width: max-content; max-width: min(14rem, calc(100vw - 1rem)); opacity: 1; transform: translate(-50%, calc(-100% - 0.45rem)); pointer-events: none; }
+body > .atlas-slot-tooltip { position: fixed; z-index: 160; right: auto; bottom: auto; width: max-content; max-width: min(14rem, calc(100vw - 1rem)); opacity: 1; pointer-events: none; }
+body > .atlas-slot-tooltip.is-above { transform: translate(-50%, calc(-100% - 0.45rem)); }
 body > .atlas-slot-tooltip.is-below { transform: translate(-50%, 0.45rem); }
+body > .atlas-slot-tooltip.is-right { transform: translate(0.55rem, -50%); }
+body > .atlas-slot-tooltip.is-left { transform: translate(calc(-100% - 0.55rem), -50%); }
+body > .atlas-slot-tooltip.is-cursor { transform: translate(0.75rem, 0.75rem); }
+
+.atlas-cursor-inventory {
+  position: fixed;
+  z-index: 220;
+  display: grid;
+  place-items: center;
+  width: calc(var(--prototype-grid-unit, 2rem) * 2);
+  height: calc(var(--prototype-grid-unit, 2rem) * 2);
+  overflow: hidden;
+  border: 0.125rem solid var(--atlas-accent);
+  border-radius: var(--atlas-radius-small);
+  background:
+    linear-gradient(90deg, transparent calc(50% - 0.5px), color-mix(in srgb, var(--atlas-accent) 32%, transparent) 50%, transparent calc(50% + 0.5px)),
+    linear-gradient(transparent calc(50% - 0.5px), color-mix(in srgb, var(--atlas-accent) 32%, transparent) 50%, transparent calc(50% + 0.5px)),
+    color-mix(in srgb, var(--atlas-surface-raised) 92%, transparent);
+  box-shadow: 0 0 1rem color-mix(in srgb, var(--atlas-accent) 48%, transparent);
+  pointer-events: none;
+  transform: translate(0.8rem, 0.8rem);
+}
+.atlas-cursor-inventory .atlas-slot-art,
+.atlas-cursor-inventory .atlas-icon { width: 72%; height: 72%; object-fit: contain; }
+.atlas-cursor-inventory > span { position: absolute; right: 0.2rem; bottom: 0.12rem; color: var(--atlas-text-tertiary); font-size: 0.45rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.atlas-hud.is-alerting { --atlas-alert: #ff3d4f; }
+.atlas-hud.is-alerting .atlas-cursor-inventory,
+.atlas-hud .is-drop-invalid { border-color: var(--atlas-alert, #ff3d4f) !important; animation: atlas-alert-flash 180ms ease-in-out 3; box-shadow: 0 0 1.2rem color-mix(in srgb, var(--atlas-alert, #ff3d4f) 72%, transparent); }
+@keyframes atlas-alert-flash { 50% { background-color: color-mix(in srgb, var(--atlas-alert, #ff3d4f) 38%, transparent); transform: translate(0.8rem, 0.8rem) scale(1.06); } }
+
+.dashboard-tooltip-preview { display: grid; place-items: center; min-height: 18rem; }
+.dashboard-tooltip-preview__item { position: relative; display: grid; place-items: center; width: 4.5rem; height: 4.5rem; border: 0.125rem solid var(--atlas-accent); color: var(--atlas-gold); }
+.dashboard-tooltip-preview__item::before { content: "⚿"; font-size: 2rem; }
+.dashboard-tooltip-preview__item > span { position: absolute; display: grid; gap: 0.2rem; width: 10rem; padding: 0.6rem; border: 0.0625rem solid var(--atlas-accent); background: var(--atlas-surface-raised); color: var(--atlas-text-primary); }
+.dashboard-tooltip-preview__item > span small { color: var(--atlas-text-tertiary); }
+.dashboard-tooltip-preview.is-right .dashboard-tooltip-preview__item > span { left: calc(100% + 0.7rem); top: 50%; transform: translateY(-50%); }
+.dashboard-tooltip-preview.is-left .dashboard-tooltip-preview__item > span { right: calc(100% + 0.7rem); top: 50%; transform: translateY(-50%); }
+.dashboard-tooltip-preview.is-above .dashboard-tooltip-preview__item > span { bottom: calc(100% + 0.7rem); left: 50%; transform: translateX(-50%); }
+.dashboard-tooltip-preview.is-below .dashboard-tooltip-preview__item > span { top: calc(100% + 0.7rem); left: 50%; transform: translateX(-50%); }
+.dashboard-tooltip-preview.is-cursor .dashboard-tooltip-preview__item > span { top: 62%; left: 62%; }
 .atlas-context-menu { max-height: calc(100vh - 1rem); overflow: auto; }
 @media (max-width: 52rem) { .atlas-mini-ability-group { gap: 0.1rem; }.atlas-side-footer { gap: 0.2rem; } }
 

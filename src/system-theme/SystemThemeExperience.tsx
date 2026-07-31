@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useRef, useState, type FormEvent } from "react";
+import QRCode from "qrcode";
 import type { GatewayClient } from "../api/gateway-client.ts";
 import type { GatewaySessionProjection } from "../api/gateway-contract.ts";
 import { InventoryItemCard, InventorySlot } from "../inventory/InventoryPrimitives.tsx";
@@ -24,6 +25,7 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
   const [flow, dispatch] = useReducer(reduceSystemFlow, initialSystemFlowState);
   const [movement, setMovement] = useState(EMPTY_INVENTORY_MOVEMENT);
   const [closing, setClosing] = useState(false);
+  const [qrSource, setQrSource] = useState("");
   const request = useRef<AbortController | null>(null);
   const loginForm = useRef<HTMLFormElement | null>(null);
   const removalInFlight = useRef(false);
@@ -32,6 +34,18 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
   const held = movement.heldInstanceId === AWARENESS_INSTANCE.instanceId;
 
   useEffect(() => () => request.current?.abort(), []);
+  useEffect(() => {
+    let active = true;
+    void QRCode.toDataURL("https://knowhere.fyi", {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 184,
+      color: { dark: "#061014", light: "#f8ffff" },
+    }).then((source) => {
+      if (active) setQrSource(source);
+    });
+    return () => { active = false; };
+  }, []);
   const beginRequest = () => { request.current?.abort(); const controller = new AbortController(); request.current = controller; return { controller, generation: generation.current }; };
   const fail = (g: number, code: string) => dispatch({ type: "failure", generation: g, error: safeSystemError(code) });
   const progress = (g: number, correlationId: string, sequence: number, percent: number, message: "Connecting to server" | "Message received" | "Entering Garden") => dispatch({ type: "progress", generation: g, progress: { correlationId, sequence, percent, message } });
@@ -83,7 +97,21 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
     : flow.stage === "recovering" ? <section><h1>Recover access</h1><p>Recovery is unavailable until its generic Gateway acknowledgement and delivery contract are approved.</p><button type="button" onClick={() => dispatch({ type: "show-login" })}>Back to login</button></section>
     : flow.stage === "character-select" ? <section><h1>Select Character</h1><p>The four-position Spirit projection is not available yet. No positions have been inferred from the current character list.</p></section>
     : flow.stage === "character-create" ? <section><h1>Create Character</h1><p>Character creation requires a server-confirmed profile and ownership projection. No request is mounted.</p></section>
-    : flow.stage === "login" ? <form ref={loginForm} onSubmit={login}><h1>KNOWHERE</h1><label>Username<input name="username" required autoComplete="username" /></label><label>Password<input name="password" type="password" required autoComplete="current-password" /></label><label className="system-check"><input name="remember" type="checkbox" disabled /> Remember me (unavailable)</label><button type="submit">Login</button><button type="button" disabled title="Recovery is not configured">Forgot Password</button><div className="system-divider">or</div><button type="button" disabled title="Discord state and PKCE handshake is not configured">Login with Discord</button><button type="button" disabled title="Registration is not configured">Register</button><div className="system-qr" role="img" aria-label="Scan to Login placeholder. No code is encoded."><span aria-hidden="true">QR</span><small>Scan to Login</small></div></form>
+    : flow.stage === "login" ? <form className="system-login-form" ref={loginForm} onSubmit={login}>
+      <header className="system-login-heading"><span>System Access</span><h1>KNOWHERE</h1><i aria-hidden="true" /></header>
+      <label className="system-login-field"><span aria-hidden="true">●</span><input name="username" required autoComplete="username" placeholder="Username" aria-label="Username" /></label>
+      <label className="system-login-field"><span aria-hidden="true">◆</span><input name="password" type="password" required autoComplete="current-password" placeholder="Password" aria-label="Password" /></label>
+      <button className="system-login-submit" type="submit">LOGIN</button>
+      <div className="system-login-utility"><label className="system-check"><input name="remember" type="checkbox" disabled /> Remember me</label><button type="button" disabled title="Recovery is not configured">Forgot Password?</button></div>
+      <div className="system-divider" aria-hidden="true"><i />◇<i /></div>
+      <div className="system-login-secondary">
+        <div><button type="button" disabled title="Discord state and PKCE handshake is not configured">Login with Discord</button><button type="button" disabled title="Registration is not configured">Register</button></div>
+        <a className="system-qr" href="https://knowhere.fyi" aria-label="Placeholder QR code linking to Knowhere dot FYI">
+          <small>Scan to Login</small>
+          {qrSource ? <img src={qrSource} alt="QR code for https://knowhere.fyi" /> : <span aria-hidden="true">Generating QR…</span>}
+        </a>
+      </div>
+    </form>
     : <section aria-live="polite"><h1>{flow.stage === "session-check" ? "Checking session" : flow.stage === "garden-entry" ? "Garden entry unavailable" : "Connecting"}</h1><progress max="100" value={flow.progress?.percent ?? 10} /><p>{flow.stage === "garden-entry" ? "Waiting for the reviewed server-selected Garden contract." : flow.progress?.message ?? "Connecting to server"}</p></section>;
-  return <main className="system-stage"><button className="system-seated-key" onClick={() => void removeKey()}>Remove Awareness</button><div className="system-panel">{panel}{flow.error ? <p className="system-error" role="alert">{safeCopy[flow.error]}</p> : null}</div>{closing ? <span className="system-tube-close" /> : null}</main>;
+  return <main className="system-stage"><div className="system-access-shell"><button className="system-seated-key" onClick={() => void removeKey()}><img src={AWARENESS_ITEM.iconPath} alt="" /><span className="sr-only">Remove Awareness and log out</span></button><div className="system-panel">{panel}{flow.error ? <p className="system-error" role="alert">{safeCopy[flow.error]}</p> : null}</div></div>{closing ? <span className="system-tube-close" /> : null}</main>;
 }

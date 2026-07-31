@@ -1,5 +1,6 @@
-import type { CSSProperties, DragEvent, KeyboardEvent, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 
+import { defaultTooltipSettings, readTooltipSettings, TOOLTIP_SETTINGS_EVENT, type TooltipPlacement, type TooltipSettings } from "../hud/tooltipSettings";
 import {
   inventoryQualityName,
   slotAcceptsItem,
@@ -39,11 +40,25 @@ type InventoryCssProperties = CSSProperties & Record<`--${string}`, string | num
 
 export function InventoryItemCard({ definition, instance, held = false, disabled = false, cancelOnDragEnd = true, showTooltip = true, onPickUp, onCancel }: InventoryItemCardProps) {
   const tooltipId = `inventory-tooltip-${instance.instanceId}`;
+  const [tooltipPlacement, setTooltipPlacement] = useState<TooltipPlacement>(() => typeof window === "undefined" ? defaultTooltipSettings.placement : readTooltipSettings(window.localStorage).placement);
+  const [pointer, setPointer] = useState({ x: 0, y: 0 });
   const style: InventoryCssProperties = {
     "--item-x": 0,
     "--item-y": 0,
     "--item-width": definition.gridSize.width,
     "--item-height": definition.gridSize.height,
+    "--tooltip-cursor-x": `${pointer.x}px`,
+    "--tooltip-cursor-y": `${pointer.y}px`,
+  };
+
+  useEffect(() => {
+    const handleSettings = (event: Event) => setTooltipPlacement((event as CustomEvent<TooltipSettings>).detail?.placement ?? readTooltipSettings(window.localStorage).placement);
+    window.addEventListener(TOOLTIP_SETTINGS_EVENT, handleSettings);
+    return () => window.removeEventListener(TOOLTIP_SETTINGS_EVENT, handleSettings);
+  }, []);
+
+  const trackPointer = (event: PointerEvent<HTMLButtonElement>) => {
+    if (tooltipPlacement === "cursor") setPointer({ x: event.clientX, y: event.clientY });
   };
 
   const beginNativeDrag = (event: DragEvent<HTMLButtonElement>) => {
@@ -83,6 +98,7 @@ export function InventoryItemCard({ definition, instance, held = false, disabled
         }}
         onDragEnd={cancelOnDragEnd ? onCancel : undefined}
         onPointerCancel={onCancel}
+        onPointerMove={trackPointer}
         onTouchCancel={onCancel}
         onLostPointerCapture={onCancel}
         onDragStart={beginNativeDrag}
@@ -96,6 +112,7 @@ export function InventoryItemCard({ definition, instance, held = false, disabled
         id={tooltipId}
         className="slot-tooltip inventory-item-tooltip"
         role="tooltip"
+        data-tooltip-placement={tooltipPlacement}
         data-item-quality={definition.quality}
         data-item-category={definition.itemCategory}
       >

@@ -39,7 +39,9 @@ test("unapproved System actions remain inert placeholders", () => {
   assert.match(experience, /disabled title="Recovery is not configured">Forgot Password/);
   assert.match(experience, /disabled title="Discord state and PKCE handshake is not configured">Login with Discord/);
   assert.match(experience, /disabled title="Registration is not configured">Register/);
-  assert.match(experience, /Scan to Login placeholder\. No code is encoded/);
+  assert.match(experience, /QRCode\.toDataURL\("https:\/\/knowhere\.fyi"/);
+  assert.match(experience, /href="https:\/\/knowhere\.fyi"/);
+  assert.match(experience, /className="system-login-form"/);
   assert.doesNotMatch(experience, /gateway\.(register|recover|discord)/);
 });
 

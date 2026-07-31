@@ -129,6 +129,7 @@ export type CanvasItemType =
   | "settings";
 
 export type CanvasItemLocation =
+  | { kind: "cursor" }
   | { kind: "hud"; slot: string }
   | { kind: "equip"; charId: string; slot: string }
   | { kind: "grid"; bagId: string; x: number; y: number }

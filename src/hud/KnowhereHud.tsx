@@ -11,6 +11,7 @@ import type { CanvasItem, CanvasItemLocation, DemoSkill, HudLogEntry, HudMapMark
 import type { WorldHudProjectionV2 } from "../api/gateway-contract";
 import { AWARENESS_ITEM } from "../inventory/inventory-model";
 import { CROSSHAIR_SETTINGS_EVENT, defaultCrosshairSettings, readCrosshairSettings, type CrosshairSettings, type CrosshairSettingsEventDetail } from "./crosshairSettings";
+import { EMPTY_CURSOR_INVENTORY, clearCursorInventory, holdCursorItem, moveCursor, planCursorPlacement } from "../inventory/cursor-inventory";
 
 type OpenPanel = "login" | "account" | "equipment" | "tome" | "settings";
 type CrosshairState = "default" | "targetable" | "interact" | "blocked" | "place" | "place-valid" | "destructive";
@@ -374,7 +375,7 @@ function AccountPanel({ loggedIn, onSignOut, onClose }: { loggedIn: "User" | "Ad
   );
 }
 
-function BagGrid({ bag, items, draggedItemId, onDragStart, onDragEnd, onDropGrid, onClick, onContextMenu }: { bag: CanvasItem; items: CanvasItem[]; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onDropGrid: (event: DragEvent<HTMLDivElement>, x: number, y: number) => void; onClick: (item: CanvasItem) => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slotKind: string) => void }) {
+function BagGrid({ bag, items, draggedItemId, onDragStart, onDragEnd, onDropGrid, onPlaceGrid, onClick, onContextMenu }: { bag: CanvasItem; items: CanvasItem[]; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onDropGrid: (event: DragEvent<HTMLElement>, x: number, y: number) => void; onPlaceGrid: (x: number, y: number) => void; onClick: (item: CanvasItem) => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slotKind: string) => void }) {
   const cols = bag.grid?.cols ?? 6;
   const rows = bag.grid?.rows ?? 4;
   return (
@@ -382,7 +383,7 @@ function BagGrid({ bag, items, draggedItemId, onDragStart, onDragEnd, onDropGrid
       {Array.from({ length: cols * rows }).map((_, index) => {
         const x = index % cols;
         const y = Math.floor(index / cols);
-        return <div key={`${x}:${y}`} className="atlas-bag-cell" data-x={x} data-y={y} onDragOver={(event) => event.preventDefault()} onDrop={(event) => onDropGrid(event, x, y)} />;
+        return <button type="button" aria-label={`Grid position ${x + 1}, ${y + 1}`} key={`${x}:${y}`} className="atlas-bag-cell" data-x={x} data-y={y} onClick={() => onPlaceGrid(x, y)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => onDropGrid(event, x, y)} />;
       })}
       {items.map((item) => {
         if (item.loc.kind !== "grid") return null;
@@ -407,7 +408,7 @@ function BagGrid({ bag, items, draggedItemId, onDragStart, onDragEnd, onDropGrid
   );
 }
 
-function StashPanel({ bag, items, capacity, draggedItemId, onDragStart, onDragEnd, onDropGrid, onClick, onContextMenu, onClose }: { bag: CanvasItem; items: CanvasItem[]; capacity: number; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onDropGrid: (event: DragEvent<HTMLDivElement>, x: number, y: number) => void; onClick: (item: CanvasItem) => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slotKind: string) => void; onClose: () => void }) {
+function StashPanel({ bag, items, capacity, draggedItemId, onDragStart, onDragEnd, onDropGrid, onPlaceGrid, onClick, onContextMenu, onClose }: { bag: CanvasItem; items: CanvasItem[]; capacity: number; draggedItemId: string | null; onDragStart: (item: CanvasItem) => void; onDragEnd: () => void; onDropGrid: (event: DragEvent<HTMLElement>, x: number, y: number) => void; onPlaceGrid: (x: number, y: number) => void; onClick: (item: CanvasItem) => void; onContextMenu: (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slotKind: string) => void; onClose: () => void }) {
   const spiritBox = bag.id === "spiritBox1";
   const canonicalStash = bag.id === "stashVault";
   const inventoryKind = canonicalStash ? "stash" : bag.id === "lunchbox1" ? "lunchbox" : "backpack";
@@ -446,7 +447,7 @@ function StashPanel({ bag, items, capacity, draggedItemId, onDragStart, onDragEn
           <span>Spirit linked</span>
         </div> : null}
         <div className="atlas-bag-grid-wrap atlas-stash-grid-wrap">
-          <BagGrid bag={{ ...bag, grid: bag.grid ?? { cols: 6, rows: 4 } }} items={items} draggedItemId={draggedItemId} onDragStart={onDragStart} onDragEnd={onDragEnd} onDropGrid={onDropGrid} onClick={onClick} onContextMenu={onContextMenu} />
+          <BagGrid bag={{ ...bag, grid: bag.grid ?? { cols: 6, rows: 4 } }} items={items} draggedItemId={draggedItemId} onDragStart={onDragStart} onDragEnd={onDragEnd} onDropGrid={onDropGrid} onPlaceGrid={onPlaceGrid} onClick={onClick} onContextMenu={onContextMenu} />
         </div>
         {spiritBox ? <footer className="atlas-stash-footer"><span><AtlasIcon name="spirit" size={0.8} /> Spirit of Life</span><small>Esc closes</small></footer> : null}
     </section>
@@ -539,6 +540,7 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
   const [compassOpen, setCompassOpen] = useState(true);
   const [loggedIn, setLoggedIn] = useState<"User" | "Admin" | null>("User");
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [cursorInventory, setCursorInventory] = useState(EMPTY_CURSOR_INVENTORY);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [rejectedDropTarget, setRejectedDropTarget] = useState<string | null>(null);
   const [activeLoadout, setActiveLoadout] = useState(0);
@@ -558,6 +560,22 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
   const chatInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    const trackCursor = (event: PointerEvent) => setCursorInventory((current) => moveCursor(current, event.clientX, event.clientY));
+    const cancelCursor = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setCursorInventory((current) => clearCursorInventory(current));
+      setDraggedItemId(null);
+      setDropTarget(null);
+    };
+    window.addEventListener("pointermove", trackCursor, { passive: true });
+    window.addEventListener("keydown", cancelCursor);
+    return () => {
+      window.removeEventListener("pointermove", trackCursor);
+      window.removeEventListener("keydown", cancelCursor);
+    };
+  }, []);
+
+  useEffect(() => {
     setCrosshairSettings(readCrosshairSettings(window.localStorage, settingsOwnerId));
     const handleCrosshairSettings = (event: Event) => {
       const detail = (event as CustomEvent<CrosshairSettingsEventDetail>).detail;
@@ -568,11 +586,12 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
   }, [settingsOwnerId]);
 
   const allItems = useMemo(() => Object.values(items), [items]);
-  const hudItem = (slot: string) => allItems.find((item) => item.loc.kind === "hud" && item.loc.slot === slot);
-  const gridItems = (bagId: string) => allItems.filter((item) => item.loc.kind === "grid" && item.loc.bagId === bagId);
+  const visibleItems = useMemo(() => allItems.filter((item) => item.id !== cursorInventory.heldItemId), [allItems, cursorInventory.heldItemId]);
+  const hudItem = (slot: string) => visibleItems.find((item) => item.loc.kind === "hud" && item.loc.slot === slot);
+  const gridItems = (bagId: string) => visibleItems.filter((item) => item.loc.kind === "grid" && item.loc.bagId === bagId);
   const activeCharacter = hudItem("character");
   const mapItem = hudItem("map");
-  const equipItem = (slot: string) => allItems.find((item) => item.loc.kind === "equip" && item.loc.charId === activeCharacter?.id && item.loc.slot === slot);
+  const equipItem = (slot: string) => visibleItems.find((item) => item.loc.kind === "equip" && item.loc.charId === activeCharacter?.id && item.loc.slot === slot);
   const actionPairCapacity = Math.max(1, Math.min(10, 5 + (equipItem("belt")?.stats?.actionSlotPairs ?? 0) + (equipItem("outfit")?.stats?.actionSlotPairs ?? 0)));
   const oddActionIndices = useMemo(() => Array.from({ length: actionPairCapacity }, (_, index) => index * 2), [actionPairCapacity]);
   const evenActionIndices = useMemo(() => Array.from({ length: actionPairCapacity }, (_, index) => index * 2 + 1), [actionPairCapacity]);
@@ -1002,14 +1021,18 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
     return null;
   };
 
-  const canPlaceGridItem = (current: Record<string, CanvasItem>, item: CanvasItem, bagId: string, x: number, y: number) => {
+  const canPlaceGridItem = (current: Record<string, CanvasItem>, item: CanvasItem, bagId: string, x: number, y: number, ignoredItemId?: string) => {
     const bag = current[bagId];
     if (!bag?.grid || x < 0 || y < 0 || x + item.w > bag.grid.cols || y + item.h > bag.grid.rows) return false;
     const candidate = { x, y, w: item.w, h: item.h };
-    return Object.values(current).filter((other) => other.id !== item.id && other.loc.kind === "grid" && other.loc.bagId === bagId).every((other) => other.loc.kind !== "grid" || !locationsOverlap(candidate, { x: other.loc.x, y: other.loc.y, w: other.w, h: other.h }));
+    return Object.values(current).filter((other) => other.id !== item.id && other.id !== ignoredItemId && other.loc.kind === "grid" && other.loc.bagId === bagId).every((other) => other.loc.kind !== "grid" || !locationsOverlap(candidate, { x: other.loc.x, y: other.loc.y, w: other.w, h: other.h }));
   };
 
   const moveItem = async (itemId: string, destination: CanvasItemLocation) => {
+    const movingItem = items[itemId];
+    if (!movingItem) return false;
+    const occupant = Object.values(items).find((other) => other.id !== itemId && JSON.stringify(other.loc) === JSON.stringify(destination));
+    if (destination.kind === "grid" && !canPlaceGridItem(items, movingItem, destination.bagId, destination.x, destination.y, occupant?.id)) return false;
     const isScopedStashDemo = itemId.startsWith("stash");
     if (!isScopedStashDemo && destination.kind === "grid" && destination.bagId === "stashVault" && projection && onInventoryMove) {
       appendLog("system", "The local stash cannot accept a server-projected inventory item without confirmation.", "warning");
@@ -1024,15 +1047,38 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
     setItems((current) => {
       const item = current[itemId];
       if (!item) return current;
-      if (destination.kind === "grid" && !canPlaceGridItem(current, item, destination.bagId, destination.x, destination.y)) return current;
-      const occupant = Object.values(current).find((other) => other.id !== itemId && JSON.stringify(other.loc) === JSON.stringify(destination));
+      if (destination.kind === "grid" && !canPlaceGridItem(current, item, destination.bagId, destination.x, destination.y, occupant?.id)) return current;
       const next = { ...current, [itemId]: { ...item, loc: destination } };
       if (occupant) next[occupant.id] = { ...occupant, loc: item.loc };
       return next;
     });
+    setCursorInventory((current) => occupant ? holdCursorItem(current, occupant.id) : clearCursorInventory(current));
     setDraggedItemId(null);
     setDropTarget(null);
     return true;
+  };
+
+  const pickCursorItem = (item: CanvasItem, pointer?: Readonly<{ x: number; y: number }>) => {
+    if (cursorInventory.heldItemId === item.id) return;
+    if (!cursorInventory.heldItemId) {
+      setCursorInventory((current) => holdCursorItem(current, item.id, pointer?.x, pointer?.y));
+      setDraggedItemId(item.id);
+      return;
+    }
+    const held = items[cursorInventory.heldItemId];
+    if (!held) {
+      setCursorInventory((current) => clearCursorInventory(current));
+      return;
+    }
+    const slotKind = item.loc.kind === "hud" ? item.loc.slot : item.loc.kind === "equip" ? item.loc.slot : "grid";
+    const acceptsHeld = item.loc.kind === "grid" || isCompatible(held, slotKind);
+    const gridAvailable = item.loc.kind !== "grid" || canPlaceGridItem(items, held, item.loc.bagId, item.loc.x, item.loc.y, item.id);
+    const plan = planCursorPlacement(cursorInventory, items, item.loc, acceptsHeld, item.id, gridAvailable);
+    if (!plan.ok) {
+      rejectDrop(slotKind, held?.name ?? "Held item", "the attempted cursor swap is incompatible");
+      return;
+    }
+    void moveItem(plan.movedItemId, plan.destination);
   };
 
   const handleFixedDrop = async (event: DragEvent<HTMLButtonElement>, slotKind: string) => {
@@ -1046,7 +1092,18 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
     if(await moveItem(item.id, destination))appendLog(slotKind.startsWith("action") ? "spirit" : "player", `${item.name} assigned to ${slotDisplayName(slotKind)}`, "gain");
   };
 
-  const handleGridDrop = async (event: DragEvent<HTMLDivElement>, x: number, y: number) => {
+  const placeCursorInFixed = async (slotKind: string) => {
+    const item = cursorInventory.heldItemId ? items[cursorInventory.heldItemId] : undefined;
+    const destination = targetLocation(slotKind);
+    if (!item || !destination) return false;
+    if (!isCompatible(item, slotKind)) {
+      rejectDrop(slotKind, item.name, `requires a compatible ${slotDisplayName(slotKind).toLowerCase()} item`);
+      return false;
+    }
+    return moveItem(item.id, destination);
+  };
+
+  const handleGridDrop = async (event: DragEvent<HTMLElement>, x: number, y: number) => {
     event.preventDefault();
     const itemId = event.dataTransfer.getData("text/plain") || draggedItemId;
     const item = itemId ? items[itemId] : undefined;
@@ -1059,6 +1116,17 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
     const overlap = Object.values(items).some((other) => other.id !== item.id && other.loc.kind === "grid" && other.loc.bagId === bagId && locationsOverlap(candidate, { x: other.loc.x, y: other.loc.y, w: other.w, h: other.h }));
     if (overlap) { rejectDrop("grid", item.name, "item footprint overlaps occupied cells"); return; }
     if(await moveItem(item.id, { kind: "grid", bagId, x, y }))appendLog("player", `${item.name} moved in ${bag.name}`, "gain");
+  };
+
+  const placeCursorInGrid = async (bagId: string, x: number, y: number) => {
+    const item = cursorInventory.heldItemId ? items[cursorInventory.heldItemId] : undefined;
+    const bag = items[bagId];
+    if (!item || !bag?.grid) return false;
+    if (!canPlaceGridItem(items, item, bagId, x, y)) {
+      rejectDrop("grid", item.name, "item footprint overlaps occupied cells or exceeds bag bounds");
+      return false;
+    }
+    return moveItem(item.id, { kind: "grid", bagId, x, y });
   };
 
   const openItemContextMenu = (event: MouseEvent<HTMLButtonElement>, item: CanvasItem, slotKind: string) => {
@@ -1098,7 +1166,7 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
   };
 
   const mapDropState: DropState = rejectedDropTarget === "map" ? "invalid" : draggedItemId && dropTarget === "map" ? (isCompatible(items[draggedItemId], "map") ? "valid" : "invalid") : undefined;
-  const mapSlot = <AtlasItemSlot item={mapItem} label="Map" size="utility" hotkey="M" dropState={mapDropState} onClick={() => openItem(mapItem)} onContextMenu={(event) => mapItem && openItemContextMenu(event, mapItem, "map")} onDragStart={(item) => { setDraggedItemId(item.id); setDropTarget("map"); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDrop={(event) => handleFixedDrop(event, "map")} onDragOver={() => setDropTarget("map")} />;
+  const mapSlot = <AtlasItemSlot item={mapItem} label="Map" size="utility" hotkey="M" dropState={mapDropState} onClick={() => openItem(mapItem)} onContextMenu={(event) => mapItem && openItemContextMenu(event, mapItem, "map")} onDragStart={(item) => { pickCursorItem(item); setDropTarget("map"); }} onDragEnd={() => setDropTarget(null)} onDrop={(event) => handleFixedDrop(event, "map")} onDragOver={() => setDropTarget("map")} />;
 
   const abilitySlotForHud = (slotKind: string): AbilitySlot | null => {
     if (slotKind === "tome-ultimate") return "tome.ultimate";
@@ -1124,11 +1192,11 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
     const displayedItem = item && abilitySlot ? withAbilityCooldown(item, abilitySlot) : item;
     const actionIndex = slotKind.startsWith("action") ? Number(/(\d+)$/.exec(slotKind)?.[1] ?? -1) : -1;
     const actionSelected = actionIndex === selectedLeftIndex || actionIndex === selectedRightIndex;
-    return <AtlasItemSlot key={slotKind} item={displayedItem} label={label} size={size} hotkey={hotkey} className={className} selected={actionSelected} dropState={dropState} onClick={() => { if (actionIndex >= 0) activateAction(actionIndex); else openItem(item); }} onContextMenu={(event) => item && openItemContextMenu(event, item, slotKind)} onDragStart={(dragItem) => { setDraggedItemId(dragItem.id); setDropTarget(slotKind); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDragOver={() => setDropTarget(slotKind)} onDrop={(event) => handleFixedDrop(event, slotKind)} />;
+    return <AtlasItemSlot key={slotKind} item={displayedItem} label={label} size={size} hotkey={hotkey} className={className} selected={actionSelected} dropState={dropState} onClick={() => { if (cursorInventory.heldItemId) { void placeCursorInFixed(slotKind); return; } if (actionIndex >= 0) activateAction(actionIndex); else openItem(item); }} onContextMenu={(event) => item && openItemContextMenu(event, item, slotKind)} onDragStart={(dragItem) => { pickCursorItem(dragItem); setDropTarget(slotKind); }} onDragEnd={() => setDropTarget(null)} onDragOver={() => setDropTarget(slotKind)} onDrop={(event) => handleFixedDrop(event, slotKind)} />;
   };
 
   return (
-    <div className={`hud-root atlas-hud prototype-hud${poweringDown ? " atlas-hud-powering-down" : ""}`} aria-busy={poweringDown} onContextMenu={(event) => { event.preventDefault(); setContextMenu(null); }}>
+    <div className={`hud-root atlas-hud prototype-hud${poweringDown ? " atlas-hud-powering-down" : ""}${rejectedDropTarget ? " is-alerting" : ""}`} aria-busy={poweringDown} onContextMenu={(event) => { event.preventDefault(); setContextMenu(null); }}>
       <header className="atlas-topbar prototype-hud__top">
         <div className="atlas-utility-group prototype-hud__designer"><DesignerAwarenessSlot disabled={poweringDown} onActivate={onOpenDashboard} onLogout={onLogout} /></div>
         {compassOpen
@@ -1188,8 +1256,8 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
         </div>
       </nav>
 
-      {openBagIds.map((bagId) => items[bagId] ? <StashPanel key={bagId} bag={items[bagId]} items={gridItems(bagId)} capacity={bagSlotCount} draggedItemId={draggedItemId} onDragStart={(item) => { setDraggedItemId(item.id); setDropTarget(`grid:${bagId}`); }} onDragEnd={() => { setDraggedItemId(null); setDropTarget(null); }} onDropGrid={(event, x, y) => handleGridDrop(event, x, y)} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setOpenBagIds((current) => current.filter((id) => id !== bagId))} /> : null)}
-      {spiritOpen ? <StashPanel bag={items.spiritBox1} items={allItems.filter((item) => item.type === "character").map((item, index) => ({ ...item, loc: { kind: "grid", bagId: "spiritBox1", x: index % 4, y: Math.floor(index / 4) } }))} capacity={4} draggedItemId={draggedItemId} onDragStart={(item) => setDraggedItemId(item.id)} onDragEnd={() => setDraggedItemId(null)} onDropGrid={(event) => event.preventDefault()} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setSpiritOpen(false)} /> : null}
+      {openBagIds.map((bagId) => items[bagId] ? <StashPanel key={bagId} bag={items[bagId]} items={gridItems(bagId)} capacity={bagSlotCount} draggedItemId={draggedItemId} onDragStart={(item) => { pickCursorItem(item); setDropTarget(`grid:${bagId}`); }} onDragEnd={() => setDropTarget(null)} onDropGrid={(event, x, y) => handleGridDrop(event, x, y)} onPlaceGrid={(x, y) => { void placeCursorInGrid(bagId, x, y); }} onClick={pickCursorItem} onContextMenu={openItemContextMenu} onClose={() => setOpenBagIds((current) => current.filter((id) => id !== bagId))} /> : null)}
+      {spiritOpen ? <StashPanel bag={items.spiritBox1} items={allItems.filter((item) => item.type === "character").map((item, index) => ({ ...item, loc: { kind: "grid", bagId: "spiritBox1", x: index % 4, y: Math.floor(index / 4) } }))} capacity={4} draggedItemId={draggedItemId} onDragStart={(item) => setDraggedItemId(item.id)} onDragEnd={() => setDraggedItemId(null)} onDropGrid={(event) => event.preventDefault()} onPlaceGrid={() => undefined} onClick={openItem} onContextMenu={openItemContextMenu} onClose={() => setSpiritOpen(false)} /> : null}
 
       {openPanel === "login" ? <LoginPanel onLogin={loginAs} onClose={() => setPanel(null)} /> : null}
       {openPanel === "account" ? <AccountPanel loggedIn={loggedIn} onSignOut={signOut} onClose={() => setPanel(null)} /> : null}
@@ -1197,6 +1265,8 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
       {openPanel === "tome" ? <TomePanel onClose={() => setPanel(null)} /> : null}
       {openPanel === "settings" ? <SettingsPanel bindings={bindings} onBindingsChange={setBindings} onClose={() => setPanel(null)} /> : null}
       {mapOpen && mapItem ? <PlayerMapPanel item={mapItem} player={mapPosition} markers={defaultMapMarkers} onClose={() => setMapOpen(false)} /> : null}
+
+      {cursorInventory.heldItemId && items[cursorInventory.heldItemId] ? <div className="atlas-cursor-inventory" style={{ left: `${cursorInventory.pointerX}px`, top: `${cursorInventory.pointerY}px` }} aria-label={`Cursor inventory: ${items[cursorInventory.heldItemId].name}`}><AtlasItemIcon item={items[cursorInventory.heldItemId]} size={1.65} /><span>Cursor</span></div> : null}
 
       {contextMenu ? <div ref={contextMenuRef} className="atlas-context-menu" style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }} role="menu" aria-label={`${contextMenu.item.name} actions`} tabIndex={-1} onKeyDown={handleContextMenuKeyDown}><strong>{contextMenu.item.name}</strong><span>{contextMenu.item.leftClickAction ?? "Inspect item"}</span>{isCompatible(contextMenu.item, "action0") ? <><div className="atlas-context-divider" /><button type="button" role="menuitem" onClick={() => equipItemForActionSide(contextMenu.item, "left")}><AtlasIcon name="chevron" size={0.9} /><span>Equip Left · Slot {selectedLeftIndex + 1}</span></button><button type="button" role="menuitem" onClick={() => equipItemForActionSide(contextMenu.item, "right")}><AtlasIcon name="chevron" size={0.9} /><span>Equip Right · Slot {selectedRightIndex + 1}</span></button></> : null}<div className="atlas-context-divider" />{compatibleItems(contextMenu.slotKind).map((item) => <button key={item.id} type="button" role="menuitem" onClick={() => { const destination = targetLocation(contextMenu.slotKind); if (destination) moveItem(item.id, destination); setContextMenu(null); }}><AtlasIcon name={item.icon} size={0.9} /><span>{item.name}</span></button>)}{compatibleItems(contextMenu.slotKind).length === 0 && !isCompatible(contextMenu.item, "action0") ? <small>No compatible items</small> : null}</div> : null}
     </div>
