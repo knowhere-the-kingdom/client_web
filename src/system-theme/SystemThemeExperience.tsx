@@ -142,7 +142,7 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
     progress(g, correlationId, 2, 100, "Message received"); await acceptSession(result.value, "login", controller);
   }
   if (flow.stage === "splash" || flow.stage === "identified" || flow.stage === "designer-ready") return <main className="system-stage system-theme system-splash" ref={gameScreen} onClick={dropKeyOnGameScreen}>
-    <h1 className="sr-only">Unknown item</h1>{held ? <div className="system-designer" ref={designer}><InventorySlot definition={DESIGNER_RECEPTACLE} heldItem={{ definition: AWARENESS_ITEM, instance: AWARENESS_INSTANCE }} className="designer-slot system-designer__slot" onPlace={insertKey} onCancel={() => { cancelMovement(); dispatch({ type: "identify" }); }} /><span className="system-designer__label">Designer</span></div> : null}
+    <h1 className="sr-only">{flow.stage === "splash" ? "Unknown item" : "Awareness"}</h1>{held ? <div className="system-designer" ref={designer}><InventorySlot definition={DESIGNER_RECEPTACLE} heldItem={{ definition: AWARENESS_ITEM, instance: AWARENESS_INSTANCE }} className="designer-slot system-designer__slot" onPlace={insertKey} onCancel={() => { cancelMovement(); dispatch({ type: "identify" }); }} /><span className="system-designer__label">Designer</span></div> : null}
     <div
       className={`system-key ${flow.stage === "splash" ? "is-unknown" : "is-identified"}${looseKeyPoint ? " is-positioned" : ""}`}
       style={looseKeyPoint ? { left: looseKeyPoint.x, top: looseKeyPoint.y } : undefined}

@@ -92,6 +92,7 @@ test("Awareness placement is accepted only by the Designer receptacle", () => {
 });
 
 test("Awareness discovery is a distinct first click before cursor pickup", () => {
+  assert.match(experience, /flow\.stage === "splash" \? "Unknown item" : "Awareness"/);
   const firstClick = experience.slice(experience.indexOf("onPickUp={(_, pointer) => {"), experience.indexOf("onCancel={cancelMovement}", experience.indexOf("onPickUp={(_, pointer) => {")));
   assert.match(firstClick, /if \(flow\.stage === "splash"\)/);
   assert.match(firstClick, /dispatch\(\{ type: "identify" \}\);\s*return;/);
