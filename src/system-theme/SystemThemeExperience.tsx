@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState, type FormEvent } from "react";
+import { useEffect, useReducer, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import QRCode from "qrcode";
 import type { GatewayClient } from "../api/gateway-client.ts";
 import type { GatewaySessionProjection } from "../api/gateway-contract.ts";
@@ -21,26 +21,38 @@ type Props = Readonly<{
   onSessionReady: (projection: GatewaySessionProjection, source: "restore" | "login", signal: AbortSignal) => void | Promise<void>;
 }>;
 
+type TransferAnimation = Readonly<{
+  kind: "pickup" | "place";
+  from: Readonly<{ x: number; y: number }>;
+  to: Readonly<{ x: number; y: number }>;
+}>;
+
 export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
   const [flow, dispatch] = useReducer(reduceSystemFlow, initialSystemFlowState);
   const [movement, setMovement] = useState(EMPTY_INVENTORY_MOVEMENT);
   const [cursorPoint, setCursorPoint] = useState({ x: 0, y: 0 });
   const [closing, setClosing] = useState(false);
   const [qrSource, setQrSource] = useState("");
+  const [transfer, setTransfer] = useState<TransferAnimation | null>(null);
   const request = useRef<AbortController | null>(null);
   const loginForm = useRef<HTMLFormElement | null>(null);
+  const designer = useRef<HTMLDivElement | null>(null);
+  const transferTimer = useRef<number | null>(null);
   const removalInFlight = useRef(false);
   const generation = useRef(flow.generation);
   generation.current = flow.generation;
   const held = movement.heldInstanceId === AWARENESS_INSTANCE.instanceId;
 
-  useEffect(() => () => request.current?.abort(), []);
+  useEffect(() => () => {
+    request.current?.abort();
+    if (transferTimer.current !== null) window.clearTimeout(transferTimer.current);
+  }, []);
   useEffect(() => {
-    if (!held) return;
+    if (!held || transfer?.kind === "place") return;
     const followPointer = (event: PointerEvent) => setCursorPoint({ x: event.clientX, y: event.clientY });
     window.addEventListener("pointermove", followPointer);
     return () => window.removeEventListener("pointermove", followPointer);
-  }, [held]);
+  }, [held, transfer?.kind]);
   useEffect(() => {
     let active = true;
     void QRCode.toDataURL("https://knowhere.fyi", {
@@ -70,12 +82,28 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
     else if (["unauthenticated", "session_expired"].includes(result.code)) dispatch({ type: "session-anonymous", generation: g });
     else fail(g, result.code);
   }
-  function insertKey() {
-    if (!placeHeldInventoryItem(movement, AWARENESS_INSTANCE, true).ok) return;
+  function finishInsertKey() {
+    transferTimer.current = null;
     setMovement(EMPTY_INVENTORY_MOVEMENT);
+    setTransfer(null);
     dispatch({ type: "insert-key" });
     void gateway.prewarmGarden();
     queueMicrotask(() => void checkSession());
+  }
+  function insertKey() {
+    if (transfer || !placeHeldInventoryItem(movement, AWARENESS_INSTANCE, true).ok) return;
+    const target = designer.current?.querySelector(".system-designer__slot")?.getBoundingClientRect();
+    if (!target) return finishInsertKey();
+    const from = cursorPoint;
+    const to = { x: target.left + target.width / 2, y: target.top + target.height / 2 };
+    setTransfer({ kind: "place", from, to });
+    transferTimer.current = window.setTimeout(finishInsertKey, 220);
+  }
+  function cancelMovement() {
+    if (transferTimer.current !== null) window.clearTimeout(transferTimer.current);
+    transferTimer.current = null;
+    setTransfer(null);
+    setMovement(cancelInventoryMovement());
   }
   async function removeKey() {
     if (removalInFlight.current) return;
@@ -96,17 +124,38 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
     progress(g, correlationId, 2, 100, "Message received"); await acceptSession(result.value, "login", controller);
   }
   if (flow.stage === "splash" || flow.stage === "identified" || flow.stage === "designer-ready") return <main className="system-stage system-theme system-splash">
-    <h1 className="sr-only">Unknown item</h1>{held ? <div className="system-designer"><InventorySlot definition={DESIGNER_RECEPTACLE} heldItem={{ definition: AWARENESS_ITEM, instance: AWARENESS_INSTANCE }} className="designer-slot system-designer__slot" onPlace={insertKey} onCancel={() => { setMovement(cancelInventoryMovement()); dispatch({ type: "identify" }); }} /><span className="system-designer__label">Designer</span></div> : null}
+    <h1 className="sr-only">Unknown item</h1>{held ? <div className="system-designer" ref={designer}><InventorySlot definition={DESIGNER_RECEPTACLE} heldItem={{ definition: AWARENESS_ITEM, instance: AWARENESS_INSTANCE }} className="designer-slot system-designer__slot" onPlace={insertKey} onCancel={() => { cancelMovement(); dispatch({ type: "identify" }); }} /><span className="system-designer__label">Designer</span></div> : null}
     <div className={`system-key ${flow.stage === "splash" ? "is-unknown" : "is-identified"}`} data-quality={flow.stage === "splash" ? undefined : "8"} data-quality-state={held ? "held" : "reveal"}><InventoryItemCard definition={AWARENESS_ITEM} instance={AWARENESS_INSTANCE} held={held} cancelOnDragEnd={false} showTooltip={flow.stage !== "splash"} onPickUp={(_, pointer) => {
       if (flow.stage === "splash") {
         dispatch({ type: "identify" });
         return;
       }
-      setCursorPoint(pointer ? { x: pointer.x, y: pointer.y } : { x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      const target = pointer ? { x: pointer.x, y: pointer.y } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      const source = document.querySelector(".system-key .inventory-item")?.getBoundingClientRect();
+      setCursorPoint(target);
+      setTransfer({
+        kind: "pickup",
+        from: source ? { x: source.left + source.width / 2, y: source.top + source.height / 2 } : target,
+        to: target,
+      });
+      if (transferTimer.current !== null) window.clearTimeout(transferTimer.current);
+      transferTimer.current = window.setTimeout(() => {
+        transferTimer.current = null;
+        setTransfer(null);
+      }, 220);
       setMovement(pickUpInventoryItem(AWARENESS_INSTANCE));
       dispatch({ type: "hold-key" });
-    }} onCancel={() => setMovement(cancelInventoryMovement())} /></div>
-    {held ? <div className="inventory-cursor-item system-key-cursor" style={{ left: cursorPoint.x, top: cursorPoint.y }} aria-label="Cursor inventory: Awareness"><img src={AWARENESS_ITEM.iconPath} alt="" /></div> : null}
+    }} onCancel={cancelMovement} /></div>
+    {held ? <div
+      className={`inventory-cursor-item system-key-cursor${transfer ? ` is-${transfer.kind}-transfer` : ""}`}
+      style={{
+        left: transfer?.kind === "place" ? transfer.from.x : cursorPoint.x,
+        top: transfer?.kind === "place" ? transfer.from.y : cursorPoint.y,
+        "--transfer-dx": `${transfer ? transfer.to.x - transfer.from.x : 0}px`,
+        "--transfer-dy": `${transfer ? transfer.to.y - transfer.from.y : 0}px`,
+      } as CSSProperties}
+      aria-label="Cursor inventory: Awareness"
+    ><img src={AWARENESS_ITEM.iconPath} alt="" /></div> : null}
   </main>;
 
   const panel = flow.stage === "registering" ? <section><h1>Register</h1><p>Registration is unavailable until the required phone-based contract is approved.</p><button type="button" onClick={() => dispatch({ type: "show-login" })}>Back to login</button></section>

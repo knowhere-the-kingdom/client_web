@@ -4,6 +4,7 @@ import test from "node:test";
 
 const app = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
 const experience = await readFile(new URL("../src/system-theme/SystemThemeExperience.tsx", import.meta.url), "utf8");
+const css = await readFile(new URL("../src/system-theme/system-flow.css", import.meta.url), "utf8");
 
 test("App mounts the System experience before authenticated client flow", () => {
   assert.match(app, /<SystemThemeExperience gateway=\{gateway\} onSessionReady=/);
@@ -63,7 +64,7 @@ test("Awareness placement is accepted only by the Designer receptacle", () => {
   assert.match(experience, /<InventorySlot[^>]+onPlace=\{insertKey\}/);
   assert.match(experience, /className="designer-slot system-designer__slot"/);
   assert.match(experience, /held \? <div className="system-designer"/);
-  assert.match(experience, /held \? <div className="inventory-cursor-item system-key-cursor"/);
+  assert.match(experience, /className=\{`inventory-cursor-item system-key-cursor/);
   assert.match(experience, /window\.addEventListener\("pointermove", followPointer\)/);
   assert.match(experience, /showTooltip=\{flow\.stage !== "splash"\}/);
   assert.doesNotMatch(experience, /system-tooltip/);
@@ -72,10 +73,28 @@ test("Awareness placement is accepted only by the Designer receptacle", () => {
 });
 
 test("Awareness discovery is a distinct first click before cursor pickup", () => {
-  const firstClick = experience.slice(experience.indexOf("onPickUp={(_, pointer) => {"), experience.indexOf("onCancel={() => setMovement", experience.indexOf("onPickUp={(_, pointer) => {")));
+  const firstClick = experience.slice(experience.indexOf("onPickUp={(_, pointer) => {"), experience.indexOf("onCancel={cancelMovement}", experience.indexOf("onPickUp={(_, pointer) => {")));
   assert.match(firstClick, /if \(flow\.stage === "splash"\)/);
   assert.match(firstClick, /dispatch\(\{ type: "identify" \}\);\s*return;/);
   assert.match(firstClick, /setMovement\(pickUpInventoryItem\(AWARENESS_INSTANCE\)\)/);
   assert.match(firstClick, /dispatch\(\{ type: "hold-key" \}\)/);
   assert.ok(firstClick.indexOf("return;") < firstClick.indexOf("pickUpInventoryItem"), "unknown discovery must return before pickup");
+});
+
+test("Awareness visibly travels into and out of the cursor inventory", () => {
+  assert.match(experience, /kind: "pickup"/);
+  assert.match(experience, /kind: "place"/);
+  assert.match(experience, /transfer\.to\.x - transfer\.from\.x/);
+  assert.match(experience, /window\.setTimeout\(finishInsertKey, 220\)/);
+  assert.match(css, /@keyframes system-item-pickup-transfer/);
+  assert.match(css, /@keyframes system-item-place-transfer/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+});
+
+test("System login chrome uses rounded controls and an unframed QR", () => {
+  assert.match(css, /\.system-panel\s*\{[^}]+border-radius: 1\.25rem/s);
+  assert.match(css, /\.system-login-submit\s*\{[^}]+border-radius: 0\.75rem/s);
+  assert.match(css, /\.system-login-secondary button\s*\{[^}]+border-radius: 0\.75rem/s);
+  assert.match(css, /\.system-qr\s*\{[^}]+border: 0;[^}]+background: transparent/s);
+  assert.match(css, /\.system-qr img\s*\{[^}]+border: 0;/s);
 });
