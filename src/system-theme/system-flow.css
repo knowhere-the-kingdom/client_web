@@ -190,6 +190,8 @@
   min-height: 12rem;
   border: 1px solid #d2ad48 !important;
   background: linear-gradient(145deg, #0a252a, #031014) !important;
+  color: #f8ffff;
+  text-decoration: none;
 }
 .system-character-card__portrait {
   display: grid;

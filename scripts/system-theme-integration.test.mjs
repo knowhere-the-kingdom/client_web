@@ -32,6 +32,7 @@ test("fresh login renders exactly four System Spirit positions before Garden ent
   assert.match(app, /className="system-character-grid"/);
   assert.match(app, /New Character/);
   assert.match(app, /Empty Spirit position/);
+  assert.match(app, /href="\/characters\/new"/);
 });
 
 test("unapproved System actions remain inert placeholders", () => {
