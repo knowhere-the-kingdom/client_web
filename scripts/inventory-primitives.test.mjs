@@ -27,14 +27,15 @@ test("Awareness preserves the authoritative Designer item definition", async () 
     description: "Once the pattern is seen, nothing appears accidental.",
     quality: 8,
     materialType: "cosmic",
-    iconPath: "/inventory/items/icons/awareness.svg",
+    iconPath: "/inventory/items/icons/awareness-key.png",
     gridSize: { width: 2, height: 2 },
   });
   assert.equal(inventoryQualityName(AWARENESS_ITEM.quality), "Cosmic");
-  const icon = (await readFile(new URL("../public/inventory/items/icons/awareness.svg", import.meta.url), "utf8")).replaceAll("\r\n", "\n");
-  assert.match(icon, /linearGradient id="gold"/);
-  assert.match(icon, /m26 25 25 25/);
-  assert.equal(createHash("sha256").update(icon).digest("hex"), "48725cf85464141766316fe836b87833ef15650c92dd4a451f819a19a68ac3c0");
+  const icon = await readFile(new URL("../public/inventory/items/icons/awareness-key.png", import.meta.url));
+  assert.equal(icon.readUInt32BE(16), 1254);
+  assert.equal(icon.readUInt32BE(20), 1254);
+  assert.equal(icon[25], 6, "Awareness artwork must retain its RGBA transparency channel");
+  assert.equal(createHash("sha256").update(icon).digest("hex"), "7ca8c5522488f968644a25a23c5f4161c386839d093fe7e566711c349c367a94");
 
   const keyhole = (await readFile(new URL("../public/inventory/items/icons/designer-keyhole.svg", import.meta.url), "utf8")).replaceAll("\r\n", "\n");
   assert.equal(createHash("sha256").update(keyhole).digest("hex"), "d217fa52aa330fe0dc7513c1d9a664ba221adf487ebfb26cc9a4b6b0276a5386");

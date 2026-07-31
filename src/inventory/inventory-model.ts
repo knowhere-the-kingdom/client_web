@@ -91,7 +91,7 @@ export const AWARENESS_ITEM: InventoryItemDefinitionV1 = Object.freeze({
   description: "Once the pattern is seen, nothing appears accidental.",
   quality: 8,
   materialType: "cosmic",
-  iconPath: "/inventory/items/icons/awareness.svg",
+  iconPath: "/inventory/items/icons/awareness-key.png",
   gridSize: Object.freeze({ width: 2, height: 2 }),
 });
 
