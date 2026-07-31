@@ -37,7 +37,7 @@ test("fresh login renders exactly four System Spirit positions before Garden ent
 
 test("unapproved System actions remain inert placeholders", () => {
   assert.match(experience, /disabled title="Recovery is not configured">Forgot Password/);
-  assert.match(experience, /disabled title="Discord state and PKCE handshake is not configured">Login with Discord/);
+  assert.match(experience, /disabled title="Discord state and PKCE handshake is not configured">.*Login with Discord/);
   assert.match(experience, /disabled title="Registration is not configured">Register/);
   assert.match(experience, /QRCode\.toDataURL\("https:\/\/knowhere\.fyi"/);
   assert.match(experience, /href="https:\/\/knowhere\.fyi"/);

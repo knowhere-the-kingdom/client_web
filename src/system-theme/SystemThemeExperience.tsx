@@ -112,15 +112,15 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
     : flow.stage === "character-create" ? <section><h1>Create Character</h1><p>Character creation requires a server-confirmed profile and ownership projection. No request is mounted.</p></section>
     : flow.stage === "login" ? <form className="system-login-form" ref={loginForm} onSubmit={login}>
       <header className="system-login-heading"><span>System Access</span><h1>KNOWHERE</h1><i aria-hidden="true" /></header>
-      <label className="system-login-field"><span aria-hidden="true">●</span><input name="username" required autoComplete="username" placeholder="Username" aria-label="Username" /></label>
-      <label className="system-login-field"><span aria-hidden="true">◆</span><input name="password" type="password" required autoComplete="current-password" placeholder="Password" aria-label="Password" /></label>
+      <label className="system-login-field"><span className="system-field-icon is-user" aria-hidden="true" /><input name="username" required autoComplete="username" placeholder="Username" aria-label="Username" /></label>
+      <label className="system-login-field"><span className="system-field-icon is-lock" aria-hidden="true" /><input name="password" type="password" required autoComplete="current-password" placeholder="Password" aria-label="Password" /></label>
       <button className="system-login-submit" type="submit">LOGIN</button>
       <div className="system-login-utility"><label className="system-check"><input name="remember" type="checkbox" disabled /> Remember me</label><button type="button" disabled title="Recovery is not configured">Forgot Password?</button></div>
       <div className="system-divider" aria-hidden="true"><i />◇<i /></div>
       <div className="system-login-secondary">
-        <div><button type="button" disabled title="Discord state and PKCE handshake is not configured">Login with Discord</button><button type="button" disabled title="Registration is not configured">Register</button></div>
+        <div><button className="system-discord-button" type="button" disabled title="Discord state and PKCE handshake is not configured"><span className="system-discord-mark" aria-hidden="true" />Login with Discord</button><button className="system-register-button" type="button" disabled title="Registration is not configured">Register</button></div>
         <a className="system-qr" href="https://knowhere.fyi" aria-label="Placeholder QR code linking to Knowhere dot FYI">
-          <small>Scan to Login</small>
+          <small><i aria-hidden="true" />Scan to Login<i aria-hidden="true" /></small>
           {qrSource ? <img src={qrSource} alt="QR code for https://knowhere.fyi" /> : <span aria-hidden="true">Generating QR…</span>}
         </a>
       </div>
