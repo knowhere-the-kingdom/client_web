@@ -70,3 +70,12 @@ test("Awareness placement is accepted only by the Designer receptacle", () => {
   assert.doesNotMatch(experience, /quality-backdrop/);
   assert.doesNotMatch(experience, /system-splash"[^>]+onDrop=/);
 });
+
+test("Awareness discovery is a distinct first click before cursor pickup", () => {
+  const firstClick = experience.slice(experience.indexOf("onPickUp={(_, pointer) => {"), experience.indexOf("onCancel={() => setMovement", experience.indexOf("onPickUp={(_, pointer) => {")));
+  assert.match(firstClick, /if \(flow\.stage === "splash"\)/);
+  assert.match(firstClick, /dispatch\(\{ type: "identify" \}\);\s*return;/);
+  assert.match(firstClick, /setMovement\(pickUpInventoryItem\(AWARENESS_INSTANCE\)\)/);
+  assert.match(firstClick, /dispatch\(\{ type: "hold-key" \}\)/);
+  assert.ok(firstClick.indexOf("return;") < firstClick.indexOf("pickUpInventoryItem"), "unknown discovery must return before pickup");
+});

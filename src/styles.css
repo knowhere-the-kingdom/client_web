@@ -2764,13 +2764,14 @@ body > .atlas-slot-tooltip.is-cursor { transform: translate(0.75rem, 0.75rem); }
 .atlas-cursor-inventory .atlas-icon { width: 72%; height: 72%; object-fit: contain; }
 .atlas-cursor-inventory > span { position: absolute; right: 0.2rem; bottom: 0.12rem; color: var(--atlas-text-tertiary); font-size: 0.45rem; letter-spacing: 0.06em; text-transform: uppercase; }
 .atlas-world-drop-surface {
-  position: absolute;
-  z-index: 0;
+  position: fixed;
+  z-index: 2;
   inset: 0;
   padding: 0;
   border: 0;
   background: transparent;
   pointer-events: auto;
+  touch-action: none;
   cursor: copy;
 }
 .atlas-world-loose-item {

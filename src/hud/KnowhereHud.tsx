@@ -1147,9 +1147,11 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
     return moveItem(item.id, { kind: "grid", bagId, x, y });
   };
 
-  const dropCursorIntoWorld = async (event: MouseEvent<HTMLButtonElement>) => {
+  const dropCursorIntoWorld = async (event: ReactPointerEvent<HTMLButtonElement>) => {
     const item = heldCursorItem;
     if (!item || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
     const destination = looseWorldLocation(event.clientX, event.clientY, window.innerWidth, window.innerHeight);
     if (await moveItem(item.id, destination)) appendLog("player", `${item.name} dropped loose`, "info");
   };
@@ -1222,7 +1224,7 @@ export function KnowhereHud({ accountLabel, settingsOwnerId, projection = null, 
 
   return (
     <div className={`hud-root atlas-hud prototype-hud${poweringDown ? " atlas-hud-powering-down" : ""}${rejectedDropTarget ? " is-alerting" : ""}`} aria-busy={poweringDown} onContextMenu={(event) => { event.preventDefault(); setContextMenu(null); }}>
-      {heldCursorItem ? <button type="button" className="atlas-world-drop-surface" aria-label={`Drop ${heldCursorItem.name} loose in the game world`} onClick={dropCursorIntoWorld} /> : null}
+      {heldCursorItem ? <button type="button" className="atlas-world-drop-surface" aria-label={`Drop ${heldCursorItem.name} loose in the game world`} onPointerDown={dropCursorIntoWorld} /> : null}
       {looseWorldItems.map((item) => item.loc.kind === "world" ? <button key={item.id} type="button" className="atlas-world-loose-item" style={{ left: `${item.loc.x * 100}%`, top: `${item.loc.y * 100}%`, "--item-columns": item.w, "--item-rows": item.h } as CSSProperties} aria-label={`${item.name}, loose in the game world`} onClick={(event) => { event.stopPropagation(); pickCursorItem(item, { x: event.clientX, y: event.clientY }); }}><AtlasItemIcon item={item} size={1.65} /><span>{item.name}</span></button> : null)}
       <header className="atlas-topbar prototype-hud__top">
         <div className="atlas-utility-group prototype-hud__designer"><DesignerAwarenessSlot disabled={poweringDown} onActivate={onOpenDashboard} onLogout={onLogout} /></div>

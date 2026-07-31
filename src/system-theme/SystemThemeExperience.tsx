@@ -98,10 +98,13 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
   if (flow.stage === "splash" || flow.stage === "identified" || flow.stage === "designer-ready") return <main className="system-stage system-theme system-splash">
     <h1 className="sr-only">Unknown item</h1>{held ? <div className="system-designer"><InventorySlot definition={DESIGNER_RECEPTACLE} heldItem={{ definition: AWARENESS_ITEM, instance: AWARENESS_INSTANCE }} className="designer-slot system-designer__slot" onPlace={insertKey} onCancel={() => { setMovement(cancelInventoryMovement()); dispatch({ type: "identify" }); }} /><span className="system-designer__label">Designer</span></div> : null}
     <div className={`system-key ${flow.stage === "splash" ? "is-unknown" : "is-identified"}`} data-quality={flow.stage === "splash" ? undefined : "8"} data-quality-state={held ? "held" : "reveal"}><InventoryItemCard definition={AWARENESS_ITEM} instance={AWARENESS_INSTANCE} held={held} cancelOnDragEnd={false} showTooltip={flow.stage !== "splash"} onPickUp={(_, pointer) => {
+      if (flow.stage === "splash") {
+        dispatch({ type: "identify" });
+        return;
+      }
       setCursorPoint(pointer ? { x: pointer.x, y: pointer.y } : { x: window.innerWidth / 2, y: window.innerHeight / 2 });
       setMovement(pickUpInventoryItem(AWARENESS_INSTANCE));
-      dispatch({ type: "identify" });
-      queueMicrotask(() => dispatch({ type: "hold-key" }));
+      dispatch({ type: "hold-key" });
     }} onCancel={() => setMovement(cancelInventoryMovement())} /></div>
     {held ? <div className="inventory-cursor-item system-key-cursor" style={{ left: cursorPoint.x, top: cursorPoint.y }} aria-label="Cursor inventory: Awareness"><img src={AWARENESS_ITEM.iconPath} alt="" /></div> : null}
   </main>;

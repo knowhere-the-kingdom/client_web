@@ -55,13 +55,42 @@
   box-shadow: none;
 }
 .system-key.is-identified .inventory-item__visual {
-  border-color: var(--item-quality-8);
+  isolation: isolate;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.system-key.is-identified .inventory-item__visual::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: var(--inventory-slot-border-width) solid var(--item-quality-8);
+  border-radius: inherit;
   background:
     radial-gradient(circle at 22% 24%, #fff 0 1px, transparent 2px),
     radial-gradient(circle at 72% 66%, #ff6dca99 0 2px, transparent 3px),
     radial-gradient(circle at 55% 42%, #ff983d88, transparent 24%), #06185d;
   box-shadow: 0 0 1rem #48d7df55;
-  animation: quality-reveal 420ms ease-out both;
+  content: "";
+  transform-origin: center;
+  animation: system-quality-panel-discover 460ms cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes system-quality-panel-discover {
+  0% {
+    opacity: 0;
+    clip-path: inset(50%);
+    transform: scale(0.04);
+  }
+  68% {
+    opacity: 1;
+    clip-path: inset(0);
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0);
+    transform: scale(1);
+  }
 }
 .system-designer {
   position: absolute;
@@ -635,7 +664,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .system-tube-close,
-  .system-key.is-identified .inventory-item__visual {
+  .system-key.is-identified .inventory-item__visual::before {
     animation-duration: 1ms;
   }
 }

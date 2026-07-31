@@ -159,6 +159,8 @@ test("game HUD keeps cursor drops projected, loose, and fail-closed", async () =
   const hud = await readFile(new URL("../src/hud/KnowhereHud.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   assert.match(hud, /className="atlas-world-drop-surface"/);
+  assert.match(hud, /onPointerDown={dropCursorIntoWorld}/);
+  assert.match(hud, /event\.preventDefault\(\);\s*event\.stopPropagation\(\)/);
   assert.match(hud, /looseWorldLocation\(event\.clientX, event\.clientY/);
   assert.match(hud, /className={`atlas-grid-drop-projection/);
   assert.match(hud, /projectionItem={heldCursorItem}/);
@@ -166,4 +168,5 @@ test("game HUD keeps cursor drops projected, loose, and fail-closed", async () =
   assert.match(styles, /\.atlas-item-drop-projection\s*\{/);
   assert.match(styles, /\.atlas-grid-drop-projection\s*\{/);
   assert.match(styles, /\.atlas-world-loose-item\s*\{/);
+  assert.match(styles, /\.atlas-world-drop-surface\s*\{[\s\S]*position:\s*fixed;[\s\S]*z-index:\s*2;[\s\S]*pointer-events:\s*auto;[\s\S]*touch-action:\s*none;/);
 });
