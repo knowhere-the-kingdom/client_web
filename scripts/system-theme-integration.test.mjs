@@ -13,12 +13,25 @@ test("App mounts the System experience before authenticated client flow", () => 
 });
 
 test("the System handoff preserves the existing server-owned client flow", () => {
-  assert.match(app, /setGateUnlocked\(true\); await continueFromProjection\(projection\)/);
+  assert.match(app, /setGateUnlocked\(true\); if \(source === "login"\)/);
+  assert.match(app, /if \(signal\.aborted\) return; setGateUnlocked\(true\)/);
+  assert.match(app, /await continueFromProjection\(projection\)/);
   assert.match(app, /stateFromSession\(projection\)/);
   assert.match(app, /gateway\.selectCharacter\(characterId, projection\.selection\.version\)/);
   assert.match(app, /gateway\.enterWorld\("garden"\)/);
   assert.match(app, /gateway\.getWorldBootstrap\(\)/);
-  assert.match(experience, /gateway\.prewarmGarden\(controller\.signal\)/);
+  assert.match(experience, /void gateway\.prewarmGarden\(\)/);
+  const acceptSession = experience.slice(experience.indexOf("async function acceptSession"), experience.indexOf("async function checkSession"));
+  assert.doesNotMatch(acceptSession, /prewarmGarden/);
+  assert.match(app, /attempt < 4/);
+  assert.match(app, /if \(source === "login"\).*phase: "character-select"/s);
+});
+
+test("fresh login renders exactly four System Spirit positions before Garden entry", () => {
+  assert.match(app, /Array\.from\(\{ length: 4 \}/);
+  assert.match(app, /className="system-character-grid"/);
+  assert.match(app, /New Character/);
+  assert.match(app, /Empty Spirit position/);
 });
 
 test("unapproved System actions remain inert placeholders", () => {
@@ -34,6 +47,7 @@ test("credentials and post-login failures stay client-safe", () => {
   assert.match(experience, /if \(!result\.ok\).*fail\(g, result\.code\)/s);
   assert.doesNotMatch(app, /message: result\.message/);
   assert.match(app, /message: safeGatewayMessage\(result\.code\)/);
+  assert.match(experience, /loginForm\.current\?\.reset\(\)/);
 });
 
 test("logout requires a confirmed Gateway revocation before local reset", () => {
@@ -44,5 +58,9 @@ test("logout requires a confirmed Gateway revocation before local reset", () => 
 
 test("Awareness placement is accepted only by the Designer receptacle", () => {
   assert.match(experience, /<InventorySlot[^>]+onPlace=\{insertKey\}/);
+  assert.match(experience, /className="designer-slot system-designer__slot"/);
+  assert.match(experience, /showTooltip=\{flow\.stage !== "splash"\}/);
+  assert.doesNotMatch(experience, /system-tooltip/);
+  assert.doesNotMatch(experience, /quality-backdrop/);
   assert.doesNotMatch(experience, /system-splash"[^>]+onDrop=/);
 });

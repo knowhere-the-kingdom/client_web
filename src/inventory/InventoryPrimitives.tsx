@@ -17,6 +17,7 @@ type InventoryItemCardProps = Readonly<{
   held?: boolean;
   disabled?: boolean;
   cancelOnDragEnd?: boolean;
+  showTooltip?: boolean;
   onPickUp: (instanceId: string, pointer?: Readonly<{ x: number; y: number; pointerType: string }>) => void;
   onCancel: () => void;
 }>;
@@ -36,7 +37,7 @@ type InventorySlotProps = Readonly<{
 
 type InventoryCssProperties = CSSProperties & Record<`--${string}`, string | number>;
 
-export function InventoryItemCard({ definition, instance, held = false, disabled = false, cancelOnDragEnd = true, onPickUp, onCancel }: InventoryItemCardProps) {
+export function InventoryItemCard({ definition, instance, held = false, disabled = false, cancelOnDragEnd = true, showTooltip = true, onPickUp, onCancel }: InventoryItemCardProps) {
   const tooltipId = `inventory-tooltip-${instance.instanceId}`;
   const style: InventoryCssProperties = {
     "--item-x": 0,
@@ -71,7 +72,7 @@ export function InventoryItemCard({ definition, instance, held = false, disabled
         data-item-height={definition.gridSize.height}
         data-item-quantity={instance.quantity}
         aria-label={`${definition.name}, ${inventoryQualityName(definition.quality)} quality`}
-        aria-describedby={tooltipId}
+        aria-describedby={showTooltip ? tooltipId : undefined}
         aria-pressed={held}
         onClick={() => onPickUp(instance.instanceId)}
         onKeyDown={(event) => {
@@ -91,7 +92,7 @@ export function InventoryItemCard({ definition, instance, held = false, disabled
           {instance.quantity > 1 ? <span className="inventory-item__quantity">{instance.quantity}</span> : null}
         </span>
       </button>
-      <span
+      {showTooltip ? <span
         id={tooltipId}
         className="slot-tooltip inventory-item-tooltip"
         role="tooltip"
@@ -103,7 +104,7 @@ export function InventoryItemCard({ definition, instance, held = false, disabled
         <span className="inventory-item-tooltip__quality">
           Quality {definition.quality} · {inventoryQualityName(definition.quality)}
         </span>
-      </span>
+      </span> : null}
     </span>
   );
 }
