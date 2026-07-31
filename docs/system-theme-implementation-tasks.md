@@ -8,6 +8,54 @@ tracked as independent acceptance items in
 part of the System-theme implementation slice and must not be silently bundled
 into it.
 
+## 2026-07-31 concept-art fidelity follow-up
+
+This is a presentation-only source slice on alpha base
+`dfd42296b8102f29cfe7e2e0abee5f2befd1699e`. It does not publish an inventory
+item, select a World, admit a character, activate Kingdom, or change an auth or
+Gateway contract.
+
+- [x] **Interfacer:** split the visual, renderer, and boundary-review lanes;
+  preserve the dirty K-drive checkout and notify Ringmaster of the scope.
+- [x] **Starving Artist:** measure the supplied composition and define one
+  responsive `816 x 1006` passage artboard: Designer upper-left, Spirit
+  upper-right, World centered, and Character centered below it.
+- [x] **World preview:** replace the still World glyph with an item-local Babylon
+  canvas using procedural cartoon Earth and space textures, a rapid
+  point/explosion -> magma -> cooling -> mature lifecycle, an equatorial Sun
+  orbit whose local light shades the planet, and a camera whose horizon is the
+  planet equator.
+- [x] Keep the World preview inert and non-authoritative: no Gateway, inventory,
+  session, admission, gameplay-camera, fetch, storage, or private-service seam.
+- [x] Classify Character presentation as a true `2 x 3` grid and draw internal
+  thirds; keep Designer and Spirit `2 x 2`, and the World host `3 x 3`.
+- [x] Run focused lifecycle/layout/authority tests (37/37), typecheck, build,
+  diff-check, and a local browser load that remains at the expected Splash
+  boundary without fixture-auth or DOM injection.
+- [ ] Restore the pre-existing Staxel manifest length expectation so the full
+  suite is green (108/109; `source/scene.gltf` is 106717 bytes while the stale
+  expectation is 101349), then capture authenticated desktop and narrow passage
+  evidence through the reviewed session flow.
+- [ ] Obtain independent Bug Eater and physical Android/WebView evidence before
+  any release-readiness claim.
+
+### Existing alpha integration boundary
+
+The System item and World projections are now part of the current alpha
+service contract. This visual slice consumes those existing server-owned
+projections and preserves the established explicit Wake Up action:
+
+- [x] Fetch World discovery from the configured Gateway only and render its
+  display name, description, availability, and current player count.
+- [x] Keep the procedural World canvas presentation-local while the surrounding
+  3x3 World item remains the explicit button into the existing Garden entry and
+  bootstrap flow.
+- [x] Preserve same-origin Gateway authentication, logout, character selection,
+  world entry, and bootstrap behavior; do not add direct service or database
+  access from the presentation component.
+- [ ] Capture authenticated desktop, narrow viewport, and physical Android
+  evidence against the exact integrated revision after publication.
+
 ## Client surfaces
 
 - [ ] Build theme tokens and shared System frame/panel/input/button components.

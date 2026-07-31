@@ -37,33 +37,39 @@ test("fresh login renders server characters plus one unlabeled 2x3 creator slot"
   assert.doesNotMatch(app, /Empty Spirit position/);
 });
 
-test("character selection seats items before exposing the Garden Wake Up item", () => {
+test("character selection seats items before exposing the server-projected World entry", () => {
   assert.match(app, /phase: "character-ready"/);
   assert.match(app, /system-item-traveler/);
   assert.match(app, /transferTimerRef\.current = window\.setTimeout/);
   assert.match(app, /onSelect\(current\.id\)/);
   assert.match(app, /projectCharacterDrop/);
   assert.match(app, /system-grid-slot--3x3/);
+  assert.match(app, /<SystemWorldItem \/>/);
   assert.match(app, /currentPlayerCount/);
   assert.match(app, /onWake/);
+  assert.match(app, /gateway\.getWorlds/);
 });
 
 test("System character passage keeps fixed Designer, Spirit, and character item slots", () => {
-  assert.match(app, /<SeatedAwareness disabled=\{poweringDown\} onRemove=\{logout\}/);
-  assert.match(app, /className="system-spirit-slot"/);
+  assert.match(app, /className="system-passage-layout"/);
+  assert.match(app, /system-passage-slot--designer"><SeatedAwareness/);
+  assert.match(app, /system-spirit-slot system-passage-slot system-passage-slot--spirit/);
   assert.match(app, /Total login time:/);
-  assert.match(app, /system-equipped-character system-grid-slot system-grid-slot--2x3/);
+  assert.match(app, /system-equipped-character system-grid-slot system-grid-slot--2x3 system-passage-slot system-passage-slot--character/);
+  assert.match(app, /viewBox="0 0 816 1006"/);
 });
 
 test("character selection uses the framed System composition instead of a generic card panel", async () => {
   const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   assert.match(app, /className="system-character-frame"/);
+  assert.match(app, /className="system-passage-connectors"/);
   assert.match(app, /className="system-character-heading"/);
   assert.match(app, /className="system-character-content"/);
   assert.match(app, /is-wake-up/);
   assert.match(app, /data-quality=\{character\.item\.quality\}/);
   assert.match(styles, /\.system-character-grid\s*\{[^}]+grid-template-columns:\s*repeat\(2,/s);
-  assert.match(styles, /\.system-character-frame\s*\{[^}]+border:/s);
+  assert.match(styles, /\.system-passage-layout\s*\{[^}]+aspect-ratio:\s*816\s*\/\s*1006/s);
+  assert.match(styles, /\.system-passage-connectors\s*\{[^}]+pointer-events:\s*none/s);
   assert.match(styles, /\.system-character-name\s*\{[^}]+bottom:\s*calc\(100%/s);
 });
 
