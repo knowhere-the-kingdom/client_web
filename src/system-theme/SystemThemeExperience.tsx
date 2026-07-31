@@ -24,6 +24,7 @@ type Props = Readonly<{
 export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
   const [flow, dispatch] = useReducer(reduceSystemFlow, initialSystemFlowState);
   const [movement, setMovement] = useState(EMPTY_INVENTORY_MOVEMENT);
+  const [cursorPoint, setCursorPoint] = useState({ x: 0, y: 0 });
   const [closing, setClosing] = useState(false);
   const [qrSource, setQrSource] = useState("");
   const request = useRef<AbortController | null>(null);
@@ -34,6 +35,12 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
   const held = movement.heldInstanceId === AWARENESS_INSTANCE.instanceId;
 
   useEffect(() => () => request.current?.abort(), []);
+  useEffect(() => {
+    if (!held) return;
+    const followPointer = (event: PointerEvent) => setCursorPoint({ x: event.clientX, y: event.clientY });
+    window.addEventListener("pointermove", followPointer);
+    return () => window.removeEventListener("pointermove", followPointer);
+  }, [held]);
   useEffect(() => {
     let active = true;
     void QRCode.toDataURL("https://knowhere.fyi", {
@@ -90,7 +97,13 @@ export function SystemThemeExperience({ gateway, onSessionReady }: Props) {
   }
   if (flow.stage === "splash" || flow.stage === "identified" || flow.stage === "designer-ready") return <main className="system-stage system-theme system-splash">
     <h1 className="sr-only">Unknown item</h1>{held ? <div className="system-designer"><InventorySlot definition={DESIGNER_RECEPTACLE} heldItem={{ definition: AWARENESS_ITEM, instance: AWARENESS_INSTANCE }} className="designer-slot system-designer__slot" onPlace={insertKey} onCancel={() => { setMovement(cancelInventoryMovement()); dispatch({ type: "identify" }); }} /><span className="system-designer__label">Designer</span></div> : null}
-    <div className={`system-key ${flow.stage === "splash" ? "is-unknown" : "is-identified"}`} data-quality={flow.stage === "splash" ? undefined : "8"} data-quality-state={held ? "held" : "reveal"}><InventoryItemCard definition={AWARENESS_ITEM} instance={AWARENESS_INSTANCE} held={held} cancelOnDragEnd={false} showTooltip={flow.stage !== "splash"} onPickUp={() => { setMovement(pickUpInventoryItem(AWARENESS_INSTANCE)); dispatch({ type: "identify" }); queueMicrotask(() => dispatch({ type: "hold-key" })); }} onCancel={() => setMovement(cancelInventoryMovement())} /></div>
+    <div className={`system-key ${flow.stage === "splash" ? "is-unknown" : "is-identified"}`} data-quality={flow.stage === "splash" ? undefined : "8"} data-quality-state={held ? "held" : "reveal"}><InventoryItemCard definition={AWARENESS_ITEM} instance={AWARENESS_INSTANCE} held={held} cancelOnDragEnd={false} showTooltip={flow.stage !== "splash"} onPickUp={(_, pointer) => {
+      setCursorPoint(pointer ? { x: pointer.x, y: pointer.y } : { x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      setMovement(pickUpInventoryItem(AWARENESS_INSTANCE));
+      dispatch({ type: "identify" });
+      queueMicrotask(() => dispatch({ type: "hold-key" }));
+    }} onCancel={() => setMovement(cancelInventoryMovement())} /></div>
+    {held ? <div className="inventory-cursor-item system-key-cursor" style={{ left: cursorPoint.x, top: cursorPoint.y }} aria-label="Cursor inventory: Awareness"><img src={AWARENESS_ITEM.iconPath} alt="" /></div> : null}
   </main>;
 
   const panel = flow.stage === "registering" ? <section><h1>Register</h1><p>Registration is unavailable until the required phone-based contract is approved.</p><button type="button" onClick={() => dispatch({ type: "show-login" })}>Back to login</button></section>

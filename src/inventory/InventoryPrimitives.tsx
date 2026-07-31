@@ -89,7 +89,11 @@ export function InventoryItemCard({ definition, instance, held = false, disabled
         aria-label={`${definition.name}, ${inventoryQualityName(definition.quality)} quality`}
         aria-describedby={showTooltip ? tooltipId : undefined}
         aria-pressed={held}
-        onClick={() => onPickUp(instance.instanceId)}
+        onClick={(event) => onPickUp(instance.instanceId, {
+          x: event.clientX,
+          y: event.clientY,
+          pointerType: "mouse",
+        })}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.preventDefault();

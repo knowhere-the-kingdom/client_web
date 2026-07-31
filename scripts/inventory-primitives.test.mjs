@@ -98,6 +98,9 @@ test("reusable inventory markup retains compatibility selectors and accessible m
   assert.match(component, /className={`inventory-item/);
   assert.match(component, /data-item-quality/);
   assert.match(component, /onClick={placeHeld}/);
+  assert.match(component, /onClick=\{\(event\) => onPickUp\(instance\.instanceId/);
+  assert.match(component, /x: event\.clientX/);
+  assert.match(component, /y: event\.clientY/);
   assert.match(component, /onKeyDown={handleKeyDown}/);
   assert.match(component, /onDrop={handleDrop}/);
   assert.match(component, /onDragEnd={cancelOnDragEnd \? onCancel : undefined}/);

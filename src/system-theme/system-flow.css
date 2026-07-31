@@ -17,7 +17,7 @@
   min-block-size: 0;
 }
 .system-key .inventory-item.is-held-source {
-  visibility: visible;
+  visibility: hidden;
 }
 .system-key.is-unknown .inventory-item__visual {
   border-color: transparent;
@@ -73,6 +73,13 @@
 }
 .system-key[data-quality-state="held"] .slot-tooltip {
   display: none;
+}
+.system-key-cursor {
+  background:
+    linear-gradient(90deg, transparent calc(50% - 0.5px), #48d7df55 50%, transparent calc(50% + 0.5px)),
+    linear-gradient(transparent calc(50% - 0.5px), #48d7df55 50%, transparent calc(50% + 0.5px)),
+    radial-gradient(circle at 50% 45%, #ff983d55, transparent 38%),
+    #06185d;
 }
 .system-panel {
   position: relative;

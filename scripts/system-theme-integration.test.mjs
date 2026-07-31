@@ -62,6 +62,9 @@ test("logout requires a confirmed Gateway revocation before local reset", () => 
 test("Awareness placement is accepted only by the Designer receptacle", () => {
   assert.match(experience, /<InventorySlot[^>]+onPlace=\{insertKey\}/);
   assert.match(experience, /className="designer-slot system-designer__slot"/);
+  assert.match(experience, /held \? <div className="system-designer"/);
+  assert.match(experience, /held \? <div className="inventory-cursor-item system-key-cursor"/);
+  assert.match(experience, /window\.addEventListener\("pointermove", followPointer\)/);
   assert.match(experience, /showTooltip=\{flow\.stage !== "splash"\}/);
   assert.doesNotMatch(experience, /system-tooltip/);
   assert.doesNotMatch(experience, /quality-backdrop/);
