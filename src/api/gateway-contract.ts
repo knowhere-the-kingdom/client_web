@@ -7,6 +7,7 @@ export const GATEWAY_CLIENT_ROUTES = Object.freeze({
   session: "/v1/session",
   resume: "/v1/session/resume",
   characterSelection: "/v1/accounts/character-selection",
+  characters: "/v1/accounts/characters",
   worldPrewarm: "/v1/worlds/prewarm",
   worlds: "/v1/worlds",
   worldEntry: "/v1/worlds/entry",
@@ -20,8 +21,19 @@ export type AuthSession = Readonly<{
   lifecycle: "active" | "idle-exited";
   expiresAt: string;
   authorizationRevision: number;
+  authorization: AuthorizationProjection;
   requiresExplicitResume: boolean;
 }>;
+
+export type AuthorizationCapability = "admin.dashboard.read" | "world.designer.read" | "world.designer.write";
+export type AuthorizationProjection = Readonly<{
+  revision: number;
+  capabilities: readonly AuthorizationCapability[];
+}>;
+
+export type GatewayItemDisplay =
+  | Readonly<{ type: "icon"; assetId: string }>
+  | Readonly<{ type: "model"; assetId: string; renderer: "babylon"; assetRevision: number }>;
 
 export type GatewaySystemItem = Readonly<{
   definitionId: string;
@@ -29,20 +41,30 @@ export type GatewaySystemItem = Readonly<{
   description: string;
   quality: number;
   footprint: Readonly<{ width: number; height: number }>;
+  display: GatewayItemDisplay;
 }>;
 
 export type GatewayCharacter = Readonly<{
   id: string;
   displayName: string;
+  bio: string;
   archetype: string;
   selectable: boolean;
+  spiritSlot: number;
+  itemInstanceId: string;
   level?: number;
   item: GatewaySystemItem;
 }>;
 
 export type GatewayAccountSoul = Readonly<{
+  instanceId: string;
+  displayName: string;
   item: GatewaySystemItem;
-  stats: Readonly<{ totalLoginSeconds: number }>;
+  stats: Readonly<{
+    totalLoginSeconds: number;
+    spiritLevel: number;
+    characterCapacity: number;
+  }>;
 }>;
 
 export type CharacterSelectionProjection = Readonly<{
@@ -58,6 +80,10 @@ export type GatewaySessionProjection = Readonly<{
   session: AuthSession;
   selection: CharacterSelectionProjection;
   accountSoul: GatewayAccountSoul;
+}>;
+
+export type CharacterCreationProjection = GatewaySessionProjection & Readonly<{
+  createdCharacterId?: string;
 }>;
 
 export type GardenWorldPrewarm = Readonly<{
@@ -160,6 +186,10 @@ export type GatewayErrorCode =
   | "aborted"
   | "account_denied"
   | "character_denied"
+  | "character_bio_invalid"
+  | "character_capacity_reached"
+  | "character_creation_unavailable"
+  | "character_name_invalid"
   | "character_selection_unavailable"
   | "character_unavailable"
   | "csrf_denied"
@@ -178,8 +208,11 @@ export type GatewayErrorCode =
   | "selection_conflict"
   | "session_expired"
   | "session_resume_required"
+  | "spirit_capacity_full"
+  | "spirit_capacity_unavailable"
   | "unauthenticated"
   | "unknown_error"
+  | "world_admission_routing_unconfigured"
   | "world_entry_denied";
 
 export type GatewayResult<T> =
