@@ -1,0 +1,7 @@
+import { centerPreviewGeometry, type ScreenStudioPreviewSpec } from "../dashboard/screen-studio-preview-model.ts";
+
+export function ScreenStudioRecordPreview({ spec }: Readonly<{ spec: ScreenStudioPreviewSpec }>) {
+  const geometry = centerPreviewGeometry(spec);
+  const objectStyle = { left: geometry.placement.x, top: geometry.placement.y, width: geometry.placement.width, height: geometry.placement.height, background: spec.background, color: spec.color, borderRadius: spec.borderRadius };
+  return <section className="screen-studio-record-preview" aria-label={`${spec.label} live preview`}><span className="screen-studio-record-preview__eyebrow">Preview · {geometry.gridUnit}px grid</span><div className="screen-studio-record-preview__well" style={{ aspectRatio: `${geometry.viewport.width} / ${geometry.viewport.height}`, backgroundSize: `${geometry.gridUnit}px ${geometry.gridUnit}px` }}><div className={`screen-studio-record-preview__object screen-studio-record-preview__object--${spec.kind.toLowerCase()}`} style={objectStyle} aria-label={`${spec.kind} preview: ${spec.label}`}>{spec.kind === "Element" && spec.id === "button" ? <button type="button" disabled aria-label={`${spec.label} preview`}>{spec.label}</button> : spec.kind === "Element" && spec.id === "text-field" ? <label>{spec.label}<input aria-label={`${spec.label} preview`} readOnly /></label> : <span>{spec.label}</span>}</div></div></section>;
+}

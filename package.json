@@ -10,20 +10,34 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "test:character-placement": "node --experimental-strip-types --test scripts/character-placement.test.mjs",
     "typecheck": "tsc -b --pretty false",
-    "test": "node --experimental-strip-types --test scripts/staxel-character-preview.test.mjs scripts/gateway-health-config.test.mjs scripts/login-flow.test.mjs scripts/dashboard-shell.test.mjs scripts/inventory-layout.test.mjs scripts/world-bootstrap.test.mjs"
+    "test": "node --experimental-strip-types --test scripts/movement-speed.test.mjs scripts/staxel-character-preview.test.mjs scripts/gateway-health-config.test.mjs scripts/gateway-client-contract.test.mjs scripts/login-flow.test.mjs scripts/system-flow.test.mjs scripts/system-theme.test.mjs scripts/system-theme-integration.test.mjs scripts/system-login-panel.test.mjs scripts/system-theme-world-item.test.mjs scripts/system-concept-layout.test.mjs scripts/dashboard-shell.test.mjs scripts/inventory-layout.test.mjs scripts/inventory-primitives.test.mjs scripts/cursor-inventory.test.mjs scripts/tooltip-settings.test.mjs scripts/inventory-action-bindings.test.mjs scripts/equipment-layout.test.mjs scripts/world-bootstrap.test.mjs scripts/player-controller-runtime.test.mjs scripts/character-input-settings.test.mjs scripts/crosshair-settings.test.mjs scripts/sun-orbit.test.mjs scripts/compass-heading.test.mjs scripts/hud-event-log-layout.test.mjs",
+    "asset:validate:staxel": "node --experimental-strip-types --test scripts/staxel-character-preview.test.mjs"
   },
   "dependencies": {
+    "@babylonjs/core": "^8.0.0",
+    "@babylonjs/loaders": "^8.0.0",
+    "@dnd-kit/core": "^6.3.1",
+    "@radix-ui/react-collapsible": "^1.1.16",
+    "@radix-ui/react-scroll-area": "^1.2.14",
     "@vitejs/plugin-react": "^4.7.0",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": "^0.180.0",
+    "rete": "2.0.6",
+    "rete-area-plugin": "2.3.2",
+    "rete-connection-plugin": "2.0.5",
+    "rete-react-plugin": "2.1.2",
+    "rete-render-utils": "2.0.3",
+    "styled-components": "6.5.0",
     "vite": "^6.4.3"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/three": "^0.180.0",
+    "rete-cli": "2.1.0",
     "typescript": "^5.0.0"
   }
 }

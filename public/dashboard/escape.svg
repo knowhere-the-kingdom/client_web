@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="cosmic" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f8ffff"/>
+      <stop offset=".35" stop-color="#48d7df"/>
+      <stop offset=".7" stop-color="#8d55cc"/>
+      <stop offset="1" stop-color="#f8ffff"/>
+    </linearGradient>
+  </defs>
+  <path fill="#10191c" stroke="url(#cosmic)" stroke-width="4" d="M32 7a15 15 0 0 0-8 28v22h16V35A15 15 0 0 0 32 7z"/>
+  <circle cx="32" cy="22" r="7" fill="#48d7df" stroke="#f8ffff" stroke-width="2"/>
+  <path fill="url(#cosmic)" d="m28 31 4-5 4 5v19h-8z"/>
+</svg>

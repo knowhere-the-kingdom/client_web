@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { initialLoginFlowState, reduceLoginFlow } from "../src/login/login-flow.ts";
@@ -37,4 +38,32 @@ test("the default Gateway seam fails closed", async () => {
   const result = await gateway.login({ identifier: "traveler", password: "not-stored" }, new AbortController().signal);
   assert.equal(result.ok, false);
   assert.match(result.message, /not available yet/i);
+});
+
+test("character selection exposes an unlabeled empty item slot and creator back action", async () => {
+  const appSource = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(appSource, /aria-label="Create character"/);
+  assert.doesNotMatch(appSource, />Create a new character<\/a>/);
+  assert.doesNotMatch(appSource, /Empty Spirit position/);
+  assert.match(appSource, />Back to characters<\/button>/);
+  assert.match(appSource, /route === "\/characters\/new"/);
+});
+
+test("a valid restored session resumes through the selected Garden without showing login", async () => {
+  const { stateFromSession } = await import("../src/session/client-flow.ts");
+  const restored = stateFromSession({
+    protocolVersion: "1.0.0",
+    session: {
+      lifecycle: "active",
+      requiresExplicitResume: false,
+    },
+    selection: {
+      version: 2,
+      resumeStage: "world",
+      canEnterWorld: true,
+      selectedCharacterId: "character-1",
+      characters: selection.characters,
+    },
+  });
+  assert.deepEqual(restored, { phase: "character-ready", projection: restored.projection, message: null });
 });

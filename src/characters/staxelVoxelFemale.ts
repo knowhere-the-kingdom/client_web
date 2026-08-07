@@ -10,6 +10,7 @@ export type CharacterPreviewAsset = Readonly<{
   attribution: string;
   gltfUrl: string;
   defaultAnimation: "Take 001";
+  previewExcludedNodeNames: readonly ["Plane001_Material #26_0"];
   status: "preview-only";
 }>;
 
@@ -17,7 +18,15 @@ export type CharacterPreviewAsset = Readonly<{
  * The controller consumes stable semantic names, never glTF node indices or
  * archive clip names. This preview intentionally maps no gameplay actions.
  */
-export type CharacterAnimationIntent = "idle" | "locomotion" | "interact";
+export type CharacterAnimationIntent =
+  | "idle"
+  | "walking"
+  | "running"
+  | "crouching"
+  | "jump-requested"
+  | "flying"
+  | "control-released"
+  | "interact";
 
 export type CharacterControllerVisualBinding = Readonly<{
   assetId: CharacterPreviewAsset["id"];
@@ -35,6 +44,7 @@ export const STAXEL_VOXEL_FEMALE: CharacterPreviewAsset = {
   attribution: "This work is based on \"Staxel Voxel Female\" by andruha1801, licensed under CC-BY-4.0.",
   gltfUrl: "/third-party/staxel_voxel_female/source/scene.gltf",
   defaultAnimation: "Take 001",
+  previewExcludedNodeNames: ["Plane001_Material #26_0"],
   status: "preview-only",
 };
 

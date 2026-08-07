@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="keyhole-gold" x1="12" y1="8" x2="52" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff0a6"/>
+      <stop offset=".35" stop-color="#d2ad48"/>
+      <stop offset=".72" stop-color="#8f6018"/>
+      <stop offset="1" stop-color="#efd06c"/>
+    </linearGradient>
+  </defs>
+  <path fill="#000" stroke="url(#keyhole-gold)" stroke-width="4" stroke-linejoin="round" d="M32 6a15 15 0 0 0-8 27.7L18 58h28l-6-24.3A15 15 0 0 0 32 6z"/>
+  <circle cx="32" cy="21" r="6" fill="#000" stroke="#f3d779" stroke-width="2"/>
+</svg>

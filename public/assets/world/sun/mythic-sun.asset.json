@@ -1,0 +1,34 @@
+{
+  "id": "mythic-sun",
+  "slug": "mythic-sun",
+  "version": 1,
+  "lifecycle": "published",
+  "integrationStatus": "integrated",
+  "source": "R:/dev/prototypes/dev_prototype/src/lib/world-assets/mythic-sun.ts",
+  "rendererFactory": "src/scene/mythic-sun.ts",
+  "geometry": {
+    "format": "native-babylon-procedural",
+    "externalTextures": 0,
+    "externalModels": 0,
+    "layers": [
+      { "name": "PlasmaCore", "primitive": "icosphere" },
+      { "name": "CoronaShell", "primitive": "icosphere-wireframe" },
+      { "name": "OmenCrown", "primitive": "torus" }
+    ]
+  },
+  "runtimeDefaults": {
+    "diameter": 52,
+    "quality": "medium",
+    "seed": 17,
+    "palette": {
+      "heart": "#ffe29a",
+      "plasma": "#ff8a3d",
+      "ember": "#b84a32",
+      "shadow": "#3a1820"
+    }
+  },
+  "authority": {
+    "scheduleOwner": "server_world",
+    "clientMayOverrideSchedule": false
+  }
+}

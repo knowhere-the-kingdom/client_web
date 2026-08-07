@@ -1,81 +1,47 @@
-import { AnimationMixer, type AnimationClip, type Object3D, type SkinnedMesh } from "three";
-import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import type { AnimationGroup } from "@babylonjs/core/Animations/animationGroup";
+import type { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 
 import { STAXEL_VOXEL_FEMALE, STAXEL_VOXEL_FEMALE_CONTROLLER_BINDING } from "./staxelVoxelFemale";
+import { derivePlayerPresentationReadiness, type PlayerPresentationReadiness, type PlayerWorldAuthoritySnapshot } from "./playerPresentationContract";
 
-export type CharacterControllerPreviewState = Readonly<{
-  mode: "preview-only";
-  assetId: typeof STAXEL_VOXEL_FEMALE.id;
-  rigVersion: typeof STAXEL_VOXEL_FEMALE_CONTROLLER_BINDING.rigVersion;
-  rootNodeName: string;
-  skinJointCount: number;
-  clipName: string;
+export type BabylonCharacterAsset = Readonly<{
+  meshes: readonly AbstractMesh[];
+  transformNodes: readonly TransformNode[];
+  animationGroups: readonly AnimationGroup[];
 }>;
 
 export type CharacterControllerPreview = Readonly<{
-  state: CharacterControllerPreviewState;
-  root: Object3D;
-  skin: SkinnedMesh;
+  state: Readonly<{ mode: "preview-only"; assetId: string; rigVersion: string; rootNodeName: string; meshCount: number; clipName: string }>;
+  root: TransformNode;
   update: (deltaSeconds: number) => void;
   dispose: () => void;
 }>;
 
-function firstSkinnedMesh(scene: Object3D): SkinnedMesh | null {
-  let result: SkinnedMesh | null = null;
-  scene.traverse((node) => {
-    if (!result && "isSkinnedMesh" in node && node.isSkinnedMesh === true) {
-      result = node as SkinnedMesh;
-    }
-  });
-  return result;
-}
+export type AdmittedCharacterPresentationResult =
+  | Readonly<{ activated: false; readiness: Extract<PlayerPresentationReadiness, { lifecycle: "inactive" }> }>
+  | Readonly<{ activated: true; readiness: Extract<PlayerPresentationReadiness, { lifecycle: "ready" }>; presentation: CharacterControllerPreview }>;
 
-function requiredClip(clips: readonly AnimationClip[]): AnimationClip {
-  const clip = clips.find((candidate) => candidate.name === STAXEL_VOXEL_FEMALE_CONTROLLER_BINDING.previewClip);
-  if (!clip) {
-    throw new Error(`Preview asset is missing required clip ${STAXEL_VOXEL_FEMALE_CONTROLLER_BINDING.previewClip}.`);
+export function createCharacterControllerPreview(asset: BabylonCharacterAsset): CharacterControllerPreview {
+  const root = asset.transformNodes.find((node) => node.name === "_rootJoint") ?? asset.transformNodes[0];
+  if (!root) throw new Error("Preview asset is missing a Babylon transform root.");
+  for (const nodeName of STAXEL_VOXEL_FEMALE.previewExcludedNodeNames) {
+    const mesh = asset.meshes.find((candidate) => candidate.name === nodeName);
+    if (mesh) mesh.setEnabled(false);
   }
-  return clip;
-}
-
-/**
- * Binds only local visual state. It intentionally has no account, inventory,
- * network, player-command, or game-authority dependency.
- */
-export function createCharacterControllerPreview(gltf: GLTF): CharacterControllerPreview {
-  const root = gltf.scene.getObjectByName("_rootJoint");
-  if (!root) {
-    throw new Error("Preview asset is missing the approved _rootJoint rig root.");
-  }
-
-  const skin = firstSkinnedMesh(gltf.scene);
-  if (!skin) {
-    throw new Error("Preview asset has no skinned mesh.");
-  }
-
-  const clip = requiredClip(gltf.animations);
-  const mixer = new AnimationMixer(gltf.scene);
-  const action = mixer.clipAction(clip);
-  action.play();
-
-  return {
-    state: Object.freeze({
-      mode: "preview-only",
-      assetId: STAXEL_VOXEL_FEMALE.id,
-      rigVersion: STAXEL_VOXEL_FEMALE_CONTROLLER_BINDING.rigVersion,
-      rootNodeName: root.name,
-      skinJointCount: skin.skeleton.bones.length,
-      clipName: clip.name,
-    }),
+  const animation = asset.animationGroups.find((candidate) => candidate.name === STAXEL_VOXEL_FEMALE_CONTROLLER_BINDING.previewClip) ?? asset.animationGroups[0];
+  if (!animation) throw new Error("Preview asset is missing a Babylon animation group.");
+  animation.start(true);
+  return Object.freeze({
+    state: Object.freeze({ mode: "preview-only", assetId: STAXEL_VOXEL_FEMALE.id, rigVersion: STAXEL_VOXEL_FEMALE_CONTROLLER_BINDING.rigVersion, rootNodeName: root.name, meshCount: asset.meshes.length, clipName: animation.name }),
     root,
-    skin,
-    update(deltaSeconds) {
-      if (Number.isFinite(deltaSeconds) && deltaSeconds > 0) mixer.update(deltaSeconds);
-    },
-    dispose() {
-      action.stop();
-      mixer.stopAllAction();
-      mixer.uncacheRoot(gltf.scene);
-    },
-  };
+    update() { /* Babylon advances animation groups with the scene render loop. */ },
+    dispose() { animation.stop(); for (const mesh of asset.meshes) mesh.dispose(false, true); root.dispose(); },
+  });
+}
+
+export function createAdmittedStaxelCharacterPresentation(asset: BabylonCharacterAsset, authority: PlayerWorldAuthoritySnapshot): AdmittedCharacterPresentationResult {
+  const readiness = derivePlayerPresentationReadiness(authority);
+  if (readiness.lifecycle !== "ready") return Object.freeze({ activated: false, readiness });
+  return Object.freeze({ activated: true, readiness, presentation: createCharacterControllerPreview(asset) });
 }

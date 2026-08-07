@@ -1,0 +1,191 @@
+.workspace-overlay-host {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.workspace-editor-overlay {
+  box-sizing: border-box;
+  position: fixed;
+  z-index: 320;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: clamp(24rem, 49vw, 44rem);
+  max-width: 100vw;
+  height: 100dvh;
+  min-width: 0;
+  min-height: 100dvh;
+  overflow: hidden;
+  border: 1px solid var(--color-panel-border, #365963);
+  border-block-width: 0;
+  background: var(--color-world-creator-surface, #0d1e24);
+  color: var(--color-panel-foreground, #edfafd);
+  box-shadow: -1rem 0 2.5rem #000b;
+  --workspace-text-counter: 0 1px 0 rgba(0,4,7,.98), 1px 0 0 rgba(0,4,7,.78), -1px 0 0 rgba(0,4,7,.78);
+  --workspace-glass-surface: rgba(3, 12, 16, .58);
+  --workspace-glass-surface-hover: rgba(8, 24, 29, .72);
+  --workspace-glass-surface-fallback: rgba(3, 12, 16, .86);
+  --workspace-glass-backdrop: blur(8px) saturate(110%);
+  background: var(--workspace-glass-surface);
+  backdrop-filter: var(--workspace-glass-backdrop);
+  -webkit-backdrop-filter: var(--workspace-glass-backdrop);
+}
+
+.workspace-editor-overlay.screen-studio-element-editor-overlay {
+  background: var(--workspace-glass-surface);
+  backdrop-filter: var(--workspace-glass-backdrop);
+  -webkit-backdrop-filter: var(--workspace-glass-backdrop);
+  border-color: #4a737e;
+}
+@supports not (backdrop-filter: blur(8px)) {
+  .workspace-editor-overlay,
+  .workspace-editor-overlay.screen-studio-element-editor-overlay {
+    background: var(--workspace-glass-surface-fallback);
+  }
+}
+
+.workspace-editor-overlay__header {
+  position: sticky;
+  z-index: 2;
+  inset-block-start: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  min-width: 0;
+  padding: .55rem .65rem .55rem 1rem;
+  border-bottom: 1px solid var(--color-panel-border, #365963);
+  background: var(--workspace-glass-surface-hover);
+  backdrop-filter: var(--workspace-glass-backdrop);
+  -webkit-backdrop-filter: var(--workspace-glass-backdrop);
+}
+
+.workspace-editor-overlay.screen-studio-element-editor-overlay .workspace-editor-overlay__header {
+  background: var(--workspace-glass-surface-hover);
+  backdrop-filter: var(--workspace-glass-backdrop);
+  -webkit-backdrop-filter: var(--workspace-glass-backdrop);
+  border-bottom-color: #4a737e;
+}
+
+.workspace-editor-overlay__header h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-panel-foreground, #edfafd);
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-editor-overlay__header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: .35rem;
+}
+
+.workspace-editor-overlay__close {
+  flex: 0 0 2.75rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--color-control-border, #4a737e);
+  border-radius: .25rem;
+  background: var(--color-control-background, #0c1c22);
+  color: var(--color-control-foreground, #edfafd);
+  font: inherit;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.workspace-editor-overlay__close:hover,
+.workspace-editor-overlay__close:focus-visible {
+  border-color: var(--color-world-creator-accent, #54e7f2);
+  outline: 2px solid var(--color-world-creator-accent, #54e7f2);
+  outline-offset: -3px;
+}
+
+.workspace-editor-overlay__content {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(.75rem, 2vw, 1rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.workspace-editor-overlay.screen-studio-element-editor-overlay .workspace-editor-overlay__content {
+  background: transparent;
+}
+@supports not (backdrop-filter: blur(8px)) {
+  .workspace-editor-overlay__header,
+  .workspace-editor-overlay.screen-studio-element-editor-overlay .workspace-editor-overlay__header,
+  .workspace-editor-overlay__close {
+    background: var(--workspace-glass-surface-hover);
+  }
+}
+
+.workspace-editor-overlay :is(h1, h2, h3, h4, h5, h6, p, label, span, b, strong, em, i, dt, dd, th, td, a, button, legend, input, select, textarea, output, ul, li, code) {
+  text-shadow: var(--workspace-text-counter);
+}
+.workspace-editor-overlay :is(input, select, textarea)::placeholder {
+  color: #b9cfd4;
+  opacity: 1;
+  text-shadow: var(--workspace-text-counter);
+}
+.workspace-editor-overlay :is(svg, img, [class*="__icon"], [class*="__dot"], .workspace-editor-overlay__close) {
+  text-shadow: none;
+}
+.workspace-editor-overlay button:disabled,
+.workspace-editor-overlay input:disabled,
+.workspace-editor-overlay select:disabled,
+.workspace-editor-overlay textarea:disabled {
+  opacity: .62;
+}
+@media (forced-colors: active) {
+  .workspace-editor-overlay :is(h1, h2, h3, h4, h5, h6, p, label, span, b, strong, em, i, dt, dd, th, td, a, button, legend, input, select, textarea, output, ul, li, code),
+  .workspace-editor-overlay :is(input, select, textarea)::placeholder {
+    text-shadow: none;
+  }
+  .workspace-editor-overlay :focus-visible {
+    border-color: Highlight;
+    outline-color: Highlight;
+  }
+}
+
+.workspace-editor-overlay__content > * {
+  min-width: 0;
+}
+
+@media (max-width: 42rem) {
+  .workspace-editor-overlay {
+    inset: 0;
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: none;
+    border-width: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .workspace-editor-overlay.screen-studio-element-editor-overlay {
+    width: 100vw;
+    max-width: 100vw;
+  }
+
+  .workspace-editor-overlay__content {
+    padding: .75rem;
+  }
+}

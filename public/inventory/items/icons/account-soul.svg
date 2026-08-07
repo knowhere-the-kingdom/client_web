@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Account Soul">
+  <defs><radialGradient id="a"><stop stop-color="#fff"/><stop offset=".22" stop-color="#79efff"/><stop offset=".58" stop-color="#2b9fe0"/><stop offset="1" stop-color="#071b45" stop-opacity="0"/></radialGradient></defs>
+  <path fill="url(#a)" d="M64 118C31 98 27 72 43 52 34 29 53 9 68 3c-7 21 9 23 16 42 23 22 14 55-20 73Z"/>
+  <circle cx="65" cy="73" r="18" fill="#dfffff" fill-opacity=".34"/>
+</svg>

@@ -1,0 +1,10 @@
+.creator-screen-designer,.creator-model-designer { box-sizing: border-box; position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; background: #071216; }
+.creator-screen-designer__surface { width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.creator-screen-designer__surface > * { width: 100%; height: 100%; min-width: 0; min-height: 0; }
+.creator-model-designer { display: grid; grid-template-rows: auto minmax(0,1fr); }
+.creator-model-designer header { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-width: 0; padding: .65rem .8rem; border-bottom: 1px solid #365963; background: #0d1e24; }
+.creator-model-designer h1 { margin: 0; color: #e1bd62; font-size: 1rem; }.creator-model-designer header span { color: #51e4ec; font-size: .72rem; }
+.creator-model-designer__canvas { display: grid; place-content: center; gap: .4rem; min-width: 0; min-height: 0; overflow: auto; background-color: #071216; background-image: linear-gradient(#36596355 1px,transparent 1px),linear-gradient(90deg,#36596355 1px,transparent 1px); background-size: 2rem 2rem; color: #d9b45a; text-align: center; }
+.creator-model-designer__canvas small { color: #9db9bf; }
+.creator-record-editor__body { display: grid; align-content: start; gap: .8rem; min-width: 0; }.creator-record-editor__body label { display: grid; gap: .35rem; }.creator-record-editor__body input,.creator-record-editor__body textarea { box-sizing: border-box; width: 100%; min-height: 2.75rem; padding: .5rem; border: 1px solid #4a737e; background: #071216; color: #edfafd; font: inherit; }.creator-record-editor__body textarea { min-height: 8rem; resize: vertical; }.creator-record-editor__body footer { display: flex; justify-content: flex-end; padding-top: .75rem; border-top: 1px solid #365963; }.creator-record-editor__body .is-destructive { border-color: #b94d58; background: #3b171b; color: #ffced1; }
+@media (max-width: 42rem) { .creator-model-designer header { align-items: start; flex-direction: column; } }

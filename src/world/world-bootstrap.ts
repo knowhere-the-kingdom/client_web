@@ -1,3 +1,5 @@
+import type { GardenSceneProjectionV1 } from "../api/gateway-contract.ts";
+
 export const WORLD_HUD_BOOTSTRAP_SCHEMA_VERSION = 1 as const;
 
 export type WorldHudBootstrapV1 = Readonly<{
@@ -11,6 +13,7 @@ export type WorldHudBootstrapV1 = Readonly<{
     contentHash: string;
   }>;
   hudProjectionRevision: number;
+  scene: GardenSceneProjectionV1;
 }>;
 
 export type WorldHudBootstrapResult =
@@ -31,12 +34,81 @@ function isOpaque(value: unknown, maxLength = 256): value is string {
 function isRfc3339(value: unknown): value is string {
   if (typeof value !== "string" || !value.includes("T")) return false;
   const parsed = Date.parse(value);
-  return Number.isFinite(parsed);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
 }
 
 function hasExactKeys(value: object, keys: readonly string[]): boolean {
   const actual = Object.keys(value).sort();
   return actual.length === keys.length && actual.every((key, index) => key === keys[index]);
+}
+
+function isGardenSceneProjection(value: unknown): value is GardenSceneProjectionV1 {
+  if (!value || typeof value !== "object") return false;
+  const scene = value as Record<string, unknown>;
+  if (!hasExactKeys(scene, ["sceneId", "schemaVersion", "skybox", "sun", "voxelLandscape"])) return false;
+  if (!scene.voxelLandscape || typeof scene.voxelLandscape !== "object") return false;
+  if (!scene.skybox || typeof scene.skybox !== "object") return false;
+  if (!scene.sun || typeof scene.sun !== "object") return false;
+  const landscape = scene.voxelLandscape as Record<string, unknown>;
+  const skybox = scene.skybox as Record<string, unknown>;
+  const sun = scene.sun as Record<string, unknown>;
+  const palette = sun.palette;
+  if (!palette || typeof palette !== "object") return false;
+  const sunPalette = palette as Record<string, unknown>;
+  return scene.schemaVersion === 1
+    && scene.sceneId === "garden-alpha-v1"
+    && hasExactKeys(landscape, ["chunkRadius", "chunkSize", "diffuse", "emissive", "kind", "specular", "voxelSizeMeters"])
+    && landscape.kind === "flat-chunk-grid"
+    && landscape.voxelSizeMeters === 1
+    && landscape.chunkSize === 16
+    && landscape.chunkRadius === 14
+    && landscape.diffuse === "#3f9b45"
+    && landscape.emissive === "#102d13"
+    && landscape.specular === "#17351a"
+    && hasExactKeys(skybox, ["dayColor", "diameter", "kind", "nightColor", "segments"])
+    && skybox.kind === "solid-color-sphere"
+    && skybox.diameter === 440
+    && skybox.segments === 24
+    && skybox.dayColor === "#55a9ed"
+    && skybox.nightColor === "#020718"
+    && hasExactKeys(sun, [
+      "assetId",
+      "assetVersion",
+      "cycleEpoch",
+      "cycleOffsetSeconds",
+      "dayDurationSeconds",
+      "diameter",
+      "kind",
+      "maxIntensity",
+      "nightDurationSeconds",
+      "palette",
+      "quality",
+      "scheduleRevision",
+      "seed",
+      "sunlight",
+    ])
+    && sun.kind === "orbiting-mythic-sun"
+    && sun.assetId === "mythic-sun"
+    && sun.assetVersion === 1
+    && sun.diameter === 52
+    && sun.quality === "medium"
+    && sun.seed === 17
+    && hasExactKeys(sunPalette, ["ember", "heart", "plasma", "shadow"])
+    && sunPalette.heart === "#ffe29a"
+    && sunPalette.plasma === "#ff8a3d"
+    && sunPalette.ember === "#b84a32"
+    && sunPalette.shadow === "#3a1820"
+    && isPositiveInteger(sun.dayDurationSeconds)
+    && (sun.dayDurationSeconds as number) <= 86_400
+    && isPositiveInteger(sun.nightDurationSeconds)
+    && (sun.nightDurationSeconds as number) <= 86_400
+    && isRfc3339(sun.cycleEpoch)
+    && typeof sun.cycleOffsetSeconds === "number"
+    && Number.isFinite(sun.cycleOffsetSeconds)
+    && sun.cycleOffsetSeconds >= 0
+    && isPositiveInteger(sun.scheduleRevision)
+    && sun.sunlight === "#fff3d0"
+    && sun.maxIntensity === 1.25;
 }
 
 export function validateWorldHudBootstrap(
@@ -49,6 +121,7 @@ export function validateWorldHudBootstrap(
     "characterId",
     "hudProjectionRevision",
     "leaseExpiresAt",
+    "scene",
     "schemaVersion",
     "serverSnapshot",
     "worldId",
@@ -71,6 +144,7 @@ export function validateWorldHudBootstrap(
     || !isPositiveInteger(snapshotRecord.contentRevision)
     || !isOpaque(snapshotRecord.contentHash)
     || !isPositiveInteger(record.hudProjectionRevision)
+    || !isGardenSceneProjection(record.scene)
   ) {
     return { ok: false, code: "invalid_bootstrap" };
   }
